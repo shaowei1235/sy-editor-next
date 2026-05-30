@@ -1,22 +1,18 @@
-const fields = ['商品名', '価格', 'バーコード', '説明文']
+'use client'
+import { FieldSidebar } from '@/components/editor/LeftSide'
+import { FieldDefinition } from '@/types/editor'
+
 const printItems = ['商品名', '価格', 'バーコード']
 
 export default function Home() {
+  const handleAddField = (field: FieldDefinition) => {
+    console.log(field)
+  }
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="grid min-h-screen grid-cols-[260px_1fr_280px]">
         <aside className="border-r border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold">左侧字段栏</h2>
-          <div className="mt-5 space-y-3">
-            {fields.map((field) => (
-              <div
-                key={field}
-                className="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium"
-              >
-                {field}
-              </div>
-            ))}
-          </div>
+          <FieldSidebar onAddField={handleAddField} />
         </aside>
 
         <section className="flex flex-col p-8">
