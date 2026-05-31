@@ -9,6 +9,12 @@ type FabricGroupWithElementId = Group & {
   elementId: string
 }
 
+const ELEMENT_PADDING_PX = 4
+const DEFAULT_RECT_FILL = '#ffffff'
+const DEFAULT_RECT_STROKE = '#cbd5e1'
+const SELECTED_RECT_STROKE = '#06b6d4'
+const TEXT_FILL = '#111827'
+
 const getElementIdFromFabricObject = (object: unknown) => {
   if (object instanceof Group && 'elementId' in object) {
     return object.elementId as string
@@ -65,8 +71,6 @@ const resizeElementGroup = (group: FabricGroupWithElementId) => {
   }
 }
 
-const ELEMENT_PADDING_PX = 4
-
 const CANVAS_CONFIG: LabelCanvasConfig = {
   widthMm: 60,
   heightMm: 40,
@@ -91,8 +95,8 @@ const createElementGroup = (element: CanvasElement) => {
     originY: 'top',
     width: rectWidthPx,
     height: rectHeightPx,
-    fill: element.style.reverse ? '#111827' : '#ffffff',
-    stroke: '#cbd5e1',
+    fill: DEFAULT_RECT_FILL,
+    stroke: DEFAULT_RECT_STROKE,
     strokeWidth: 1,
     selectable: false,
     evented: false,
@@ -109,8 +113,8 @@ const createElementGroup = (element: CanvasElement) => {
     fontStyle: element.style.italic ? 'italic' : 'normal',
     underline: element.style.underline,
     textAlign: element.style.textAlign,
-    fill: element.style.reverse ? '#ffffff' : '#111827',
-    backgroundColor: element.style.reverse ? '#111827' : '',
+    fill: TEXT_FILL,
+    backgroundColor: '',
     lineHeight: element.style.lineHeight,
     charSpacing: element.style.letterSpacing,
     splitByGrapheme: element.style.autoWrap,
@@ -149,8 +153,8 @@ const updateElementGroup = (
     fontStyle: element.style.italic ? 'italic' : 'normal',
     underline: element.style.underline,
     textAlign: element.style.textAlign,
-    fill: element.style.reverse ? '#ffffff' : '#111827',
-    backgroundColor: element.style.reverse ? '#111827' : '',
+    fill: TEXT_FILL,
+    backgroundColor: '',
     lineHeight: element.style.lineHeight,
     charSpacing: element.style.letterSpacing,
     splitByGrapheme: element.style.autoWrap,
@@ -180,6 +184,15 @@ const findGroupByElementId = (
         'elementId' in object &&
         object.elementId === elementId,
     )
+const updateGroupSelectionStyle = (
+  group: FabricGroupWithElementId,
+  isSelected: boolean,
+) => {
+  const [rect] = group.getObjects()
+  rect?.set({
+    stroke: isSelected ? SELECTED_RECT_STROKE : DEFAULT_RECT_STROKE,
+  })
+}
 
 export function FabricCanvas() {
   const elements = useEditorStore((state) => state.elements)
@@ -299,6 +312,15 @@ export function FabricCanvas() {
     }
     isSyncintSelectionRef.current = true
     try {
+      fabricCanvas.getObjects().forEach((object) => {
+        const elementId = getElementIdFromFabricObject(object)
+        if (elementId) {
+          updateGroupSelectionStyle(
+            object as FabricGroupWithElementId,
+            elementId === selectedElementId,
+          )
+        }
+      })
       if (!selectedElementId) {
         fabricCanvas.discardActiveObject()
         fabricCanvas.requestRenderAll()
