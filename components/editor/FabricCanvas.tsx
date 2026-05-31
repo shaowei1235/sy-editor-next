@@ -4,9 +4,65 @@ import { Canvas as FabricCanvasInstance, Group, Rect, Textbox } from 'fabric'
 import { useEffect, useRef } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
 
-import type { LabelCanvasConfig } from '@/types/editor'
+import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
 type FabricGroupWithElementId = Group & {
   elementId: string
+}
+
+const getElementIdFromFabricObject = (object: unknown) => {
+  if (object instanceof Group && 'elementId' in object) {
+    return object.elementId as string
+  }
+
+  return null
+}
+
+const syncGroupToElementSize = (
+  group: FabricGroupWithElementId,
+  widthPx: number,
+  heightPx: number,
+) => {
+  const [rect, textbox] = group.getObjects()
+  // 父盒子中心点的相对坐标
+  const left = -widthPx / 2
+  const top = -heightPx / 2
+
+  rect?.set({
+    left,
+    top,
+    width: widthPx,
+    height: heightPx,
+    scaleX: 1,
+    scaleY: 1,
+  })
+
+  textbox?.set({
+    left: left + ELEMENT_PADDING_PX,
+    top: top + ELEMENT_PADDING_PX,
+    width: Math.max(widthPx - ELEMENT_PADDING_PX * 2, 0),
+    scaleX: 1,
+    scaleY: 1,
+  })
+}
+
+const resizeElementGroup = (group: FabricGroupWithElementId) => {
+  const actualWidthPx = (group.width ?? 0) * (group.scaleX ?? 1)
+  const actualHeightPx = (group.height ?? 0) * (group.scaleY ?? 1)
+
+  syncGroupToElementSize(group, actualWidthPx, actualHeightPx)
+
+  group.set({
+    width: actualWidthPx,
+    height: actualHeightPx,
+    scaleX: 1,
+    scaleY: 1,
+  })
+  group.setCoords()
+
+  return {
+    widthPx: actualWidthPx,
+    heightPx: actualHeightPx,
+  }
 }
 
 const ELEMENT_PADDING_PX = 4
@@ -22,6 +78,108 @@ const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
 const mmToPx = (valueMm: number) => valueMm * CANVAS_CONFIG.pxPerMm
 const pxToMm = (valuePx: number) =>
   Number((valuePx / CANVAS_CONFIG.pxPerMm).toFixed(2))
+
+const createElementGroup = (element: CanvasElement) => {
+  const rectWidthPx = mmToPx(element.widthMm)
+  const rectHeightPx = mmToPx(element.heightMm)
+  const textWidthPx = Math.max(rectWidthPx - ELEMENT_PADDING_PX * 2, 0)
+
+  const rect = new Rect({
+    left: 0,
+    top: 0,
+    originX: 'left',
+    originY: 'top',
+    width: rectWidthPx,
+    height: rectHeightPx,
+    fill: element.style.reverse ? '#111827' : '#ffffff',
+    stroke: '#cbd5e1',
+    strokeWidth: 1,
+    selectable: false,
+    evented: false,
+  })
+
+  const textbox = new Textbox(element.text, {
+    left: ELEMENT_PADDING_PX,
+    top: ELEMENT_PADDING_PX,
+    originX: 'left',
+    originY: 'top',
+    width: textWidthPx,
+    fontSize: element.style.fontSize,
+    fontWeight: element.style.bold ? 'bold' : 'normal',
+    fontStyle: element.style.italic ? 'italic' : 'normal',
+    underline: element.style.underline,
+    textAlign: element.style.textAlign,
+    fill: element.style.reverse ? '#ffffff' : '#111827',
+    backgroundColor: element.style.reverse ? '#111827' : '',
+    lineHeight: element.style.lineHeight,
+    charSpacing: element.style.letterSpacing,
+    splitByGrapheme: element.style.autoWrap,
+    selectable: false,
+    evented: false,
+  })
+
+  const group = new Group([rect, textbox], {
+    left: mmToPx(element.xMm),
+    top: mmToPx(element.yMm),
+    originX: 'left',
+    originY: 'top',
+    width: rectWidthPx,
+    height: rectHeightPx,
+    angle: element.angle,
+  }) as FabricGroupWithElementId
+
+  group.elementId = element.id
+
+  return group
+}
+
+const updateElementGroup = (
+  group: FabricGroupWithElementId,
+  element: CanvasElement,
+) => {
+  const widthPx = mmToPx(element.widthMm)
+  const heightPx = mmToPx(element.heightMm)
+  const [, textbox] = group.getObjects()
+
+  syncGroupToElementSize(group, widthPx, heightPx)
+  textbox?.set({
+    text: element.text,
+    fontSize: element.style.fontSize,
+    fontWeight: element.style.bold ? 'bold' : 'normal',
+    fontStyle: element.style.italic ? 'italic' : 'normal',
+    underline: element.style.underline,
+    textAlign: element.style.textAlign,
+    fill: element.style.reverse ? '#ffffff' : '#111827',
+    backgroundColor: element.style.reverse ? '#111827' : '',
+    lineHeight: element.style.lineHeight,
+    charSpacing: element.style.letterSpacing,
+    splitByGrapheme: element.style.autoWrap,
+  })
+
+  group.set({
+    left: mmToPx(element.xMm),
+    top: mmToPx(element.yMm),
+    width: widthPx,
+    height: heightPx,
+    angle: element.angle,
+    scaleX: 1,
+    scaleY: 1,
+  })
+  group.setCoords()
+}
+
+const findGroupByElementId = (
+  fabricCanvas: FabricCanvasInstance,
+  elementId: string,
+) =>
+  fabricCanvas
+    .getObjects()
+    .find(
+      (object): object is FabricGroupWithElementId =>
+        object instanceof Group &&
+        'elementId' in object &&
+        object.elementId === elementId,
+    )
 
 export function FabricCanvas() {
   const elements = useEditorStore((state) => state.elements)
@@ -66,29 +224,21 @@ export function FabricCanvas() {
 
     // 同步拖拽到store
     const handleObjectModified = (event: { target?: unknown }) => {
-      const targetObject = event.target as FabricGroupWithElementId | undefined
-      if (!targetObject?.elementId) {
+      const elementId = getElementIdFromFabricObject(event.target)
+
+      if (!elementId) {
         return
       }
-      const actualWidthPx =
-        (targetObject.width ?? 0) * (targetObject.scaleX ?? 1)
-      const actualHeightPx =
-        (targetObject.height ?? 0) * (targetObject.scaleY ?? 1)
-      // 手动改对象属性
-      targetObject.set({
-        width: actualWidthPx,
-        height: actualHeightPx,
-        scaleX: 1,
-        scaleY: 1,
-      })
-      //重新计算
-      targetObject.setCoords()
+
+      const targetObject = event.target as FabricGroupWithElementId
+      const { widthPx, heightPx } = resizeElementGroup(targetObject)
+
       // 拖拽触发
-      updateElement(targetObject.elementId, {
+      updateElement(elementId, {
         xMm: pxToMm(targetObject.left ?? 0),
         yMm: pxToMm(targetObject.top ?? 0),
-        widthMm: pxToMm(actualWidthPx),
-        heightMm: pxToMm(actualHeightPx),
+        widthMm: pxToMm(widthPx),
+        heightMm: pxToMm(heightPx),
       })
     }
     fabricCanvas.on('selection:created', handleSelectionChange)
@@ -117,59 +267,23 @@ export function FabricCanvas() {
 
     isSyncintSelectionRef.current = true
     try {
+      const elementIds = new Set(elements.map((element) => element.id))
       fabricCanvas.getObjects().forEach((object) => {
-        fabricCanvas.remove(object)
+        const elementId = getElementIdFromFabricObject(object)
+        if (elementId && !elementIds.has(elementId)) {
+          // 画布有、store 没有 -> 删除
+          fabricCanvas.remove(object)
+        }
       })
       elements.forEach((element) => {
-        const rectWidthPx = mmToPx(element.widthMm)
-        const rectHeightPx = mmToPx(element.heightMm)
-        const textWidthPx = Math.max(rectWidthPx - ELEMENT_PADDING_PX * 2, 0)
-
-        const rect = new Rect({
-          left: 0,
-          top: 0,
-          originX: 'left',
-          originY: 'top',
-          width: rectWidthPx,
-          height: rectHeightPx,
-          fill: element.style.reverse ? '#111827' : '#ffffff',
-          stroke: '#cbd5e1',
-          strokeWidth: 1,
-          selectable: false,
-          evented: false,
-        })
-        const textbox = new Textbox(element.text, {
-          left: ELEMENT_PADDING_PX,
-          top: ELEMENT_PADDING_PX,
-          originX: 'left',
-          originY: 'top',
-          width: textWidthPx,
-          fontSize: element.style.fontSize,
-          fontWeight: element.style.bold ? 'bold' : 'normal',
-          fontStyle: element.style.italic ? 'italic' : 'normal',
-          underline: element.style.underline,
-          textAlign: element.style.textAlign,
-          fill: element.style.reverse ? '#ffffff' : '#111827',
-          backgroundColor: element.style.reverse ? '#111827' : '',
-          lineHeight: element.style.lineHeight,
-          charSpacing: element.style.letterSpacing,
-          splitByGrapheme: element.style.autoWrap,
-          selectable: false,
-          evented: false,
-        })
-
-        const group = new Group([rect, textbox], {
-          left: mmToPx(element.xMm),
-          top: mmToPx(element.yMm),
-          originX: 'left',
-          originY: 'top',
-          width: rectWidthPx,
-          height: rectHeightPx,
-          angle: element.angle,
-        }) as FabricGroupWithElementId
-        // 保存业务元素 id，后续选中、更新、删除时可以把 Fabric 对象和 store 数据对应起来。
-        group.elementId = element.id
-        fabricCanvas.add(group)
+        const existingGroup = findGroupByElementId(fabricCanvas, element.id)
+        // store 有、画布也有 -> 更新
+        // 画布有、store 没有 -> 删除
+        if (existingGroup) {
+          updateElementGroup(existingGroup, element)
+          return
+        }
+        fabricCanvas.add(createElementGroup(element))
       })
     } finally {
       isSyncintSelectionRef.current = false
@@ -190,12 +304,7 @@ export function FabricCanvas() {
         fabricCanvas.requestRenderAll()
         return
       }
-      const targetObject = fabricCanvas
-        .getObjects()
-        .find(
-          (obj): obj is FabricGroupWithElementId =>
-            'elementId' in obj && obj.elementId === selectedElementId,
-        )
+      const targetObject = findGroupByElementId(fabricCanvas, selectedElementId)
 
       if (!targetObject) {
         fabricCanvas.discardActiveObject()
