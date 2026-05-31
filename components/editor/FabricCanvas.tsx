@@ -1,13 +1,15 @@
 'use client'
 
-import { Canvas as FabricCanvasInstance, Textbox } from 'fabric'
+import { Canvas as FabricCanvasInstance, Group, Rect, Textbox } from 'fabric'
 import { useEffect, useRef } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
 
 import type { LabelCanvasConfig } from '@/types/editor'
-type FabricTextboxWithElementId = Textbox & {
+type FabricGroupWithElementId = Group & {
   elementId: string
 }
+
+const ELEMENT_PADDING_PX = 4
 
 const CANVAS_CONFIG: LabelCanvasConfig = {
   widthMm: 60,
@@ -50,7 +52,7 @@ export function FabricCanvas() {
         return
       }
       const activeObject = fabricCanvas.getActiveObject() as
-        | FabricTextboxWithElementId
+        | FabricGroupWithElementId
         | undefined
       selectElement(activeObject?.elementId || null)
     }
@@ -64,9 +66,7 @@ export function FabricCanvas() {
 
     // 同步拖拽到store
     const handleObjectModified = (event: { target?: unknown }) => {
-      const targetObject = event.target as
-        | FabricTextboxWithElementId
-        | undefined
+      const targetObject = event.target as FabricGroupWithElementId | undefined
       if (!targetObject?.elementId) {
         return
       }
@@ -121,14 +121,29 @@ export function FabricCanvas() {
         fabricCanvas.remove(object)
       })
       elements.forEach((element) => {
-        const textbox = new Textbox(element.text, {
-          left: mmToPx(element.xMm),
-          top: mmToPx(element.yMm),
+        const rectWidthPx = mmToPx(element.widthMm)
+        const rectHeightPx = mmToPx(element.heightMm)
+        const textWidthPx = Math.max(rectWidthPx - ELEMENT_PADDING_PX * 2, 0)
+
+        const rect = new Rect({
+          left: 0,
+          top: 0,
           originX: 'left',
           originY: 'top',
-          width: mmToPx(element.widthMm),
-          height: mmToPx(element.heightMm),
-          angle: element.angle,
+          width: rectWidthPx,
+          height: rectHeightPx,
+          fill: element.style.reverse ? '#111827' : '#ffffff',
+          stroke: '#cbd5e1',
+          strokeWidth: 1,
+          selectable: false,
+          evented: false,
+        })
+        const textbox = new Textbox(element.text, {
+          left: ELEMENT_PADDING_PX,
+          top: ELEMENT_PADDING_PX,
+          originX: 'left',
+          originY: 'top',
+          width: textWidthPx,
           fontSize: element.style.fontSize,
           fontWeight: element.style.bold ? 'bold' : 'normal',
           fontStyle: element.style.italic ? 'italic' : 'normal',
@@ -139,11 +154,22 @@ export function FabricCanvas() {
           lineHeight: element.style.lineHeight,
           charSpacing: element.style.letterSpacing,
           splitByGrapheme: element.style.autoWrap,
-        }) as FabricTextboxWithElementId
+          selectable: false,
+          evented: false,
+        })
 
+        const group = new Group([rect, textbox], {
+          left: mmToPx(element.xMm),
+          top: mmToPx(element.yMm),
+          originX: 'left',
+          originY: 'top',
+          width: rectWidthPx,
+          height: rectHeightPx,
+          angle: element.angle,
+        }) as FabricGroupWithElementId
         // 保存业务元素 id，后续选中、更新、删除时可以把 Fabric 对象和 store 数据对应起来。
-        textbox.elementId = element.id
-        fabricCanvas.add(textbox)
+        group.elementId = element.id
+        fabricCanvas.add(group)
       })
     } finally {
       isSyncintSelectionRef.current = false
@@ -167,7 +193,7 @@ export function FabricCanvas() {
       const targetObject = fabricCanvas
         .getObjects()
         .find(
-          (obj): obj is FabricTextboxWithElementId =>
+          (obj): obj is FabricGroupWithElementId =>
             'elementId' in obj && obj.elementId === selectedElementId,
         )
 
