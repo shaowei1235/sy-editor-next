@@ -35,6 +35,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
 
   addElementFromField: (field) => {
     set((state) => {
+      console.log('store, addElementFromField', state.elements)
       const sameFieldElemets = state.elements.filter(
         (e) => e.fieldKey === field.key,
       )
