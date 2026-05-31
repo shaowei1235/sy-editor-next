@@ -18,11 +18,15 @@ const CANVAS_CONFIG: LabelCanvasConfig = {
 const canvasWidthPx = CANVAS_CONFIG.widthMm * CANVAS_CONFIG.pxPerMm
 const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
 const mmToPx = (valueMm: number) => valueMm * CANVAS_CONFIG.pxPerMm
+const pxToMm = (valuePx: number) =>
+  Number((valuePx / CANVAS_CONFIG.pxPerMm).toFixed(2))
 
 export function FabricCanvas() {
   const elements = useEditorStore((state) => state.elements)
   const selectedElementId = useEditorStore((state) => state.selectedElementId)
   const selectElement = useEditorStore((state) => state.selectElement)
+  const updateElement = useEditorStore((state) => state.updateElement)
+
   const canvasElementRef = useRef<HTMLCanvasElement | null>(null)
   const fabricCanvasRef = useRef<FabricCanvasInstance | null>(null)
 
@@ -57,9 +61,40 @@ export function FabricCanvas() {
       }
       selectElement(null)
     }
+
+    // 同步拖拽到store
+    const handleObjectModified = (event: { target?: unknown }) => {
+      const targetObject = event.target as
+        | FabricTextboxWithElementId
+        | undefined
+      if (!targetObject?.elementId) {
+        return
+      }
+      const actualWidthPx =
+        (targetObject.width ?? 0) * (targetObject.scaleX ?? 1)
+      const actualHeightPx =
+        (targetObject.height ?? 0) * (targetObject.scaleY ?? 1)
+      // 手动改对象属性
+      targetObject.set({
+        width: actualWidthPx,
+        height: actualHeightPx,
+        scaleX: 1,
+        scaleY: 1,
+      })
+      //重新计算
+      targetObject.setCoords()
+      // 拖拽触发
+      updateElement(targetObject.elementId, {
+        xMm: pxToMm(targetObject.left ?? 0),
+        yMm: pxToMm(targetObject.top ?? 0),
+        widthMm: pxToMm(actualWidthPx),
+        heightMm: pxToMm(actualHeightPx),
+      })
+    }
     fabricCanvas.on('selection:created', handleSelectionChange)
     fabricCanvas.on('selection:updated', handleSelectionChange)
     fabricCanvas.on('selection:cleared', handleSelectionCleard)
+    fabricCanvas.on('object:modified', handleObjectModified)
 
     fabricCanvasRef.current = fabricCanvas
     fabricCanvas.requestRenderAll()
@@ -67,10 +102,11 @@ export function FabricCanvas() {
       fabricCanvas.off('selection:created', handleSelectionChange)
       fabricCanvas.off('selection:updated', handleSelectionChange)
       fabricCanvas.off('selection:cleared', handleSelectionCleard)
+      fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvasRef.current = null
       void fabricCanvas.dispose()
     }
-  }, [selectElement])
+  }, [selectElement, updateElement])
 
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
