@@ -13,9 +13,13 @@ import { useEditorStore } from '@/lib/editor/store'
 import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
 type FabricGroupWithElementId = Group & {
   elementId: string
+  borderEnabled: boolean
 }
 type FabricLabelWithElementId = Text & {
   labelForElementId: string
+}
+type FabricPrintOrderWithElementId = Text & {
+  printOrderForElementId: string
 }
 
 const ELEMENT_PADDING_PX = 4
@@ -26,6 +30,9 @@ const TEXT_FILL = '#111827'
 const LABEL_FILL = '#64748b'
 const LABEL_FONT_SIZE = 10
 const LABEL_OFFSET_Y = 14
+const PRINT_ORDER_FILL = '#ffffff'
+const PRINT_ORDER_BACKGROUND = '#ef4444'
+const PRINT_ORDER_FONT_SIZE = 20
 
 const getElementIdFromFabricObject = (object: unknown) => {
   if (object instanceof Group && 'elementId' in object) {
@@ -38,6 +45,14 @@ const getElementIdFromFabricObject = (object: unknown) => {
 const getLabelElementIdFromFabricObject = (object: unknown) => {
   if (object instanceof Text && 'labelForElementId' in object) {
     return object.labelForElementId as string
+  }
+
+  return null
+}
+
+const getPrintOrderElementIdFromFabricObject = (object: unknown) => {
+  if (object instanceof Text && 'printOrderForElementId' in object) {
+    return object.printOrderForElementId as string
   }
 
   return null
@@ -139,8 +154,8 @@ const createElementGroup = (element: CanvasElement) => {
     width: rectWidthPx,
     height: rectHeightPx,
     fill: DEFAULT_RECT_FILL,
-    stroke: DEFAULT_RECT_STROKE,
-    strokeWidth: 1,
+    stroke: element.style.border ? DEFAULT_RECT_STROKE : '',
+    strokeWidth: element.style.border ? 2 : 0,
     selectable: false,
     evented: false,
   })
@@ -176,7 +191,7 @@ const createElementGroup = (element: CanvasElement) => {
   }) as FabricGroupWithElementId
 
   group.elementId = element.id
-
+  group.borderEnabled = element.style.border
   return group
 }
 
@@ -186,9 +201,14 @@ const updateElementGroup = (
 ) => {
   const widthPx = mmToPx(element.widthMm)
   const heightPx = mmToPx(element.heightMm)
-  const [, textbox] = group.getObjects()
+  const [rect, textbox] = group.getObjects()
 
   syncGroupToElementSize(group, widthPx, heightPx)
+  group.borderEnabled = element.style.border
+  rect?.set({
+    stroke: element.style.border ? DEFAULT_RECT_STROKE : '',
+    strokeWidth: element.style.border ? 2 : 0,
+  })
   textbox?.set({
     text: element.text,
     fontSize: element.style.fontSize,
@@ -233,7 +253,12 @@ const updateGroupSelectionStyle = (
 ) => {
   const [rect] = group.getObjects()
   rect?.set({
-    stroke: isSelected ? SELECTED_RECT_STROKE : DEFAULT_RECT_STROKE,
+    stroke: group.borderEnabled
+      ? isSelected
+        ? SELECTED_RECT_STROKE
+        : DEFAULT_RECT_STROKE
+      : '',
+    strokeWidth: group.borderEnabled ? 2 : 0,
   })
 }
 
@@ -274,6 +299,56 @@ const findLabelByElementId = (
         object instanceof Text &&
         'labelForElementId' in object &&
         object.labelForElementId === elementId,
+    )
+
+const getPrintOrderPosition = (element: CanvasElement) => {
+  return {
+    left: mmToPx(element.xMm + element.widthMm),
+    top: mmToPx(element.yMm + element.heightMm),
+  }
+}
+
+const createElementPrintOrder = (element: CanvasElement) => {
+  const printOrderPosition = getPrintOrderPosition(element)
+  const printOrder = new Text(String(element.printOrder), {
+    ...printOrderPosition,
+    originX: 'right',
+    originY: 'bottom',
+    fontSize: PRINT_ORDER_FONT_SIZE,
+    fill: PRINT_ORDER_FILL,
+    backgroundColor: PRINT_ORDER_BACKGROUND,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+  }) as FabricPrintOrderWithElementId
+
+  printOrder.printOrderForElementId = element.id
+
+  return printOrder
+}
+
+const updateElementPrintOrder = (
+  printOrder: FabricPrintOrderWithElementId,
+  element: CanvasElement,
+) => {
+  printOrder.set({
+    text: String(element.printOrder),
+    ...getPrintOrderPosition(element),
+  })
+  printOrder.setCoords()
+}
+
+const findPrintOrderByElementId = (
+  fabricCanvas: FabricCanvasInstance,
+  elementId: string,
+) =>
+  fabricCanvas
+    .getObjects()
+    .find(
+      (object): object is FabricPrintOrderWithElementId =>
+        object instanceof Text &&
+        'printOrderForElementId' in object &&
+        object.printOrderForElementId === elementId,
     )
 
 export function FabricCanvas() {
@@ -370,11 +445,18 @@ export function FabricCanvas() {
       fabricCanvas.getObjects().forEach((object) => {
         const elementId = getElementIdFromFabricObject(object)
         const labelElementId = getLabelElementIdFromFabricObject(object)
+        const printOrderElementId =
+          getPrintOrderElementIdFromFabricObject(object)
+
         if (elementId && !elementIds.has(elementId)) {
           // 画布有、store 没有 -> 删除
           fabricCanvas.remove(object)
         }
         if (labelElementId && !elementIds.has(labelElementId)) {
+          // 画布有、store 没有 -> 删除
+          fabricCanvas.remove(object)
+        }
+        if (printOrderElementId && !elementIds.has(printOrderElementId)) {
           // 画布有、store 没有 -> 删除
           fabricCanvas.remove(object)
         }
@@ -393,9 +475,19 @@ export function FabricCanvas() {
         const existingLabel = findLabelByElementId(fabricCanvas, element.id)
         if (existingLabel) {
           updateElementLabel(existingLabel, element)
-          return
+        } else {
+          fabricCanvas.add(createElementLabel(element))
         }
-        fabricCanvas.add(createElementLabel(element))
+        const existingPrintOrder = findPrintOrderByElementId(
+          fabricCanvas,
+          element.id,
+        )
+
+        if (existingPrintOrder) {
+          updateElementPrintOrder(existingPrintOrder, element)
+        } else {
+          fabricCanvas.add(createElementPrintOrder(element))
+        }
       })
     } finally {
       isSyncintSelectionRef.current = false
