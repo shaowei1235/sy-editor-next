@@ -1,6 +1,12 @@
 'use client'
 
-import { Canvas as FabricCanvasInstance, Group, Rect, Textbox } from 'fabric'
+import {
+  Canvas as FabricCanvasInstance,
+  Group,
+  Rect,
+  Textbox,
+  Text,
+} from 'fabric'
 import { useEffect, useRef } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
 
@@ -8,16 +14,30 @@ import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
 type FabricGroupWithElementId = Group & {
   elementId: string
 }
+type FabricLabelWithElementId = Text & {
+  labelForElementId: string
+}
 
 const ELEMENT_PADDING_PX = 4
 const DEFAULT_RECT_FILL = '#ffffff'
 const DEFAULT_RECT_STROKE = '#cbd5e1'
 const SELECTED_RECT_STROKE = '#06b6d4'
 const TEXT_FILL = '#111827'
+const LABEL_FILL = '#64748b'
+const LABEL_FONT_SIZE = 10
+const LABEL_OFFSET_Y = 14
 
 const getElementIdFromFabricObject = (object: unknown) => {
   if (object instanceof Group && 'elementId' in object) {
     return object.elementId as string
+  }
+
+  return null
+}
+
+const getLabelElementIdFromFabricObject = (object: unknown) => {
+  if (object instanceof Text && 'labelForElementId' in object) {
+    return object.labelForElementId as string
   }
 
   return null
@@ -100,6 +120,8 @@ const syncAngleFromGroup = (group: FabricGroupWithElementId) => ({
   angle: Math.round(group.angle ?? 0),
 })
 
+// 当前修改是否包含缩放
+// syncSizeFromGroup()--->resizeElementGroup()导致旋转失效
 const hasGroupScaleChanged = (group: FabricGroupWithElementId) =>
   Math.abs((group.scaleX ?? 1) - 1) > 0.01 ||
   Math.abs((group.scaleY ?? 1) - 1) > 0.01
@@ -215,6 +237,45 @@ const updateGroupSelectionStyle = (
   })
 }
 
+const createElementLabel = (element: CanvasElement) => {
+  const label = new Text(element.displayName, {
+    left: mmToPx(element.xMm),
+    top: Math.max(mmToPx(element.yMm) - LABEL_OFFSET_Y, 0),
+    fontSize: LABEL_FONT_SIZE,
+    fill: LABEL_FILL,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+  }) as FabricLabelWithElementId
+  label.labelForElementId = element.id
+  return label
+}
+
+const updateElementLabel = (
+  label: FabricLabelWithElementId,
+  element: CanvasElement,
+) => {
+  label.set({
+    text: element.displayName,
+    left: mmToPx(element.xMm),
+    top: Math.max(mmToPx(element.yMm) - LABEL_OFFSET_Y, 0),
+  })
+  label.setCoords()
+}
+
+const findLabelByElementId = (
+  fabricCanvas: FabricCanvasInstance,
+  elementId: string,
+) =>
+  fabricCanvas
+    .getObjects()
+    .find(
+      (object): object is FabricLabelWithElementId =>
+        object instanceof Text &&
+        'labelForElementId' in object &&
+        object.labelForElementId === elementId,
+    )
+
 export function FabricCanvas() {
   const elements = useEditorStore((state) => state.elements)
   const selectedElementId = useEditorStore((state) => state.selectedElementId)
@@ -308,7 +369,12 @@ export function FabricCanvas() {
       const elementIds = new Set(elements.map((element) => element.id))
       fabricCanvas.getObjects().forEach((object) => {
         const elementId = getElementIdFromFabricObject(object)
+        const labelElementId = getLabelElementIdFromFabricObject(object)
         if (elementId && !elementIds.has(elementId)) {
+          // 画布有、store 没有 -> 删除
+          fabricCanvas.remove(object)
+        }
+        if (labelElementId && !elementIds.has(labelElementId)) {
           // 画布有、store 没有 -> 删除
           fabricCanvas.remove(object)
         }
@@ -319,9 +385,17 @@ export function FabricCanvas() {
         // 画布有、store 没有 -> 删除
         if (existingGroup) {
           updateElementGroup(existingGroup, element)
+          // return
+        } else {
+          fabricCanvas.add(createElementGroup(element))
+          // fabricCanvas.add(createElementLabel(element))
+        }
+        const existingLabel = findLabelByElementId(fabricCanvas, element.id)
+        if (existingLabel) {
+          updateElementLabel(existingLabel, element)
           return
         }
-        fabricCanvas.add(createElementGroup(element))
+        fabricCanvas.add(createElementLabel(element))
       })
     } finally {
       isSyncintSelectionRef.current = false
