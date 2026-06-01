@@ -14,6 +14,7 @@ import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
 type FabricGroupWithElementId = Group & {
   elementId: string
   borderEnabled: boolean
+  verticalAlign: CanvasElement['style']['verticalAlign']
 }
 type FabricLabelWithElementId = Text & {
   labelForElementId: string
@@ -79,11 +80,17 @@ const syncGroupToElementSize = (
 
   textbox?.set({
     left: left + ELEMENT_PADDING_PX,
-    top: top + ELEMENT_PADDING_PX,
+    // top: top + ELEMENT_PADDING_PX,
     width: Math.max(widthPx - ELEMENT_PADDING_PX * 2, 0),
     scaleX: 1,
     scaleY: 1,
   })
+  // 垂直对齐
+  if (textbox instanceof Textbox) {
+    textbox.set({
+      top: getTextboxTop(textbox, heightPx, group.verticalAlign),
+    })
+  }
 }
 
 const resizeElementGroup = (group: FabricGroupWithElementId) => {
@@ -192,6 +199,8 @@ const createElementGroup = (element: CanvasElement) => {
 
   group.elementId = element.id
   group.borderEnabled = element.style.border
+  group.verticalAlign = element.style.verticalAlign
+  syncGroupToElementSize(group, rectWidthPx, rectHeightPx)
   return group
 }
 
@@ -203,8 +212,9 @@ const updateElementGroup = (
   const heightPx = mmToPx(element.heightMm)
   const [rect, textbox] = group.getObjects()
 
-  syncGroupToElementSize(group, widthPx, heightPx)
+  // syncGroupToElementSize(group, widthPx, heightPx)
   group.borderEnabled = element.style.border
+  group.verticalAlign = element.style.verticalAlign
   rect?.set({
     stroke: element.style.border ? DEFAULT_RECT_STROKE : '',
     strokeWidth: element.style.border ? 2 : 0,
@@ -222,7 +232,7 @@ const updateElementGroup = (
     charSpacing: element.style.letterSpacing,
     splitByGrapheme: element.style.autoWrap,
   })
-
+  syncGroupToElementSize(group, widthPx, heightPx)
   group.set({
     left: mmToPx(element.xMm),
     top: mmToPx(element.yMm),
@@ -350,6 +360,33 @@ const findPrintOrderByElementId = (
         'printOrderForElementId' in object &&
         object.printOrderForElementId === elementId,
     )
+
+// 内部元素的相对位置以group中心点为准
+const getTextboxTop = (
+  textbox: Textbox,
+  heightPx: number,
+  verticalAlign: CanvasElement['style']['verticalAlign'],
+) => {
+  textbox.initDimensions()
+
+  const textHeight = textbox.height ?? 0
+  const minTop = -heightPx / 2 + ELEMENT_PADDING_PX
+  const maxTop = heightPx / 2 - ELEMENT_PADDING_PX - textHeight
+
+  if (textHeight > heightPx - ELEMENT_PADDING_PX * 2) {
+    return minTop
+  }
+
+  if (verticalAlign === 'middle') {
+    return (minTop + maxTop) / 2
+  }
+
+  if (verticalAlign === 'bottom') {
+    return maxTop
+  }
+
+  return minTop
+}
 
 export function FabricCanvas() {
   const elements = useEditorStore((state) => state.elements)
