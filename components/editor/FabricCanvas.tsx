@@ -83,6 +83,27 @@ const mmToPx = (valueMm: number) => valueMm * CANVAS_CONFIG.pxPerMm
 const pxToMm = (valuePx: number) =>
   Number((valuePx / CANVAS_CONFIG.pxPerMm).toFixed(2))
 
+const syncPositionFromGroup = (group: FabricGroupWithElementId) => ({
+  xMm: pxToMm(group.left ?? 0),
+  yMm: pxToMm(group.top ?? 0),
+})
+
+const syncSizeFromGroup = (group: FabricGroupWithElementId) => {
+  const { widthPx, heightPx } = resizeElementGroup(group)
+  return {
+    widthMm: pxToMm(widthPx),
+    heightMm: pxToMm(heightPx),
+  }
+}
+
+const syncAngleFromGroup = (group: FabricGroupWithElementId) => ({
+  angle: Math.round(group.angle ?? 0),
+})
+
+const hasGroupScaleChanged = (group: FabricGroupWithElementId) =>
+  Math.abs((group.scaleX ?? 1) - 1) > 0.01 ||
+  Math.abs((group.scaleY ?? 1) - 1) > 0.01
+
 const createElementGroup = (element: CanvasElement) => {
   const rectWidthPx = mmToPx(element.widthMm)
   const rectHeightPx = mmToPx(element.heightMm)
@@ -244,14 +265,18 @@ export function FabricCanvas() {
       }
 
       const targetObject = event.target as FabricGroupWithElementId
-      const { widthPx, heightPx } = resizeElementGroup(targetObject)
+      // const { widthPx, heightPx } = resizeElementGroup(targetObject)
+      const partial = {
+        ...syncAngleFromGroup(targetObject),
+        ...syncPositionFromGroup(targetObject),
+      }
 
-      // 拖拽触发
+      // object:modified 在操作结束后触发
       updateElement(elementId, {
-        xMm: pxToMm(targetObject.left ?? 0),
-        yMm: pxToMm(targetObject.top ?? 0),
-        widthMm: pxToMm(widthPx),
-        heightMm: pxToMm(heightPx),
+        ...partial,
+        ...(hasGroupScaleChanged(targetObject)
+          ? syncSizeFromGroup(targetObject)
+          : {}),
       })
     }
     fabricCanvas.on('selection:created', handleSelectionChange)
