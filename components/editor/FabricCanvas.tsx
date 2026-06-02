@@ -9,8 +9,9 @@ import {
 } from 'fabric'
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
+import type { CanvasElement } from '@/types/editor'
+import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
 
-import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
 type FabricGroupWithElementId = Group & {
   elementId: string
   borderEnabled: boolean
@@ -128,17 +129,22 @@ const resizeElementGroup = (group: FabricGroupWithElementId) => {
   }
 }
 
-const CANVAS_CONFIG: LabelCanvasConfig = {
-  widthMm: 60,
-  heightMm: 40,
-  pxPerMm: 8,
-}
+// const CANVAS_CONFIG: LabelCanvasConfig = {
+//   widthMm: 60,
+//   heightMm: 40,
+//   pxPerMm: 8,
+// }
 
-const canvasWidthPx = CANVAS_CONFIG.widthMm * CANVAS_CONFIG.pxPerMm
-const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
-const mmToPx = (valueMm: number) => valueMm * CANVAS_CONFIG.pxPerMm
+// Fabric Canvas 实际使用的是像素尺寸。
+// const canvasWidthPx = CANVAS_CONFIG.widthMm * CANVAS_CONFIG.pxPerMm
+// const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
+const canvasWidthPx = LABEL_CANVAS_CONFIG.widthMm * LABEL_CANVAS_CONFIG.pxPerMm
+const canvasHeightPx =
+  LABEL_CANVAS_CONFIG.heightMm * LABEL_CANVAS_CONFIG.pxPerMm
+
+const mmToPx = (valueMm: number) => valueMm * LABEL_CANVAS_CONFIG.pxPerMm
 const pxToMm = (valuePx: number) =>
-  Number((valuePx / CANVAS_CONFIG.pxPerMm).toFixed(2))
+  Number((valuePx / LABEL_CANVAS_CONFIG.pxPerMm).toFixed(2))
 
 const syncPositionFromGroup = (group: FabricGroupWithElementId) => ({
   xMm: pxToMm(group.left ?? 0),
