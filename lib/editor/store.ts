@@ -9,6 +9,7 @@ type EditorStore = {
   selectElement: (id: string | null) => void
   updateElement: (id: string, partial: Partial<CanvasElement>) => void
   removeElement: (id: string) => void
+  reorderElementsByIds: (orderedIds: string[]) => void
 }
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
@@ -79,4 +80,17 @@ export const useEditorStore = create<EditorStore>((set) => ({
         state.selectedElementId === id ? null : state.selectedElementId,
     }))
   },
+  reorderElementsByIds: (orderedIds) =>
+    set((state) => {
+      const printOrderById = new Map(
+        orderedIds.map((id, index) => [id, index + 1]),
+      )
+
+      return {
+        elements: state.elements.map((element) => ({
+          ...element,
+          printOrder: printOrderById.get(element.id) ?? element.printOrder,
+        })),
+      }
+    }),
 }))

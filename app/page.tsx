@@ -3,10 +3,11 @@
 import { FieldSidebar } from '@/components/editor/LeftSide'
 import { useEditorStore } from '@/lib/editor/store'
 import { FabricCanvas } from '@/components/editor/FabricCanvas'
+import { PrintOrderPanel } from '@/components/editor/PrintOrderPanel'
 import { StyleToolbar } from '@/components/editor/StyleToolbar'
 import type { TextStyle } from '@/types/editor'
 
-const printItems = ['商品名', '価格', 'バーコード']
+// const printItems = ['商品名', '価格', 'バーコード']
 
 export default function Home() {
   // const handleAddField = (field: FieldDefinition) => {}
@@ -53,23 +54,7 @@ export default function Home() {
             <FabricCanvas />
           </div>
         </section>
-
-        <aside className="border-l border-slate-200 bg-white p-6">
-          <h2 className="text-lg font-semibold">右侧打印顺序列表</h2>
-          <ol className="mt-5 space-y-3">
-            {printItems.map((item, index) => (
-              <li
-                key={item}
-                className="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm"
-              >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                  {index + 1}
-                </span>
-                <span className="font-medium">{item}</span>
-              </li>
-            ))}
-          </ol>
-        </aside>
+        <PrintOrderPanel />
       </div>
     </main>
   )
