@@ -7,7 +7,7 @@ import {
   Textbox,
   Text,
 } from 'fabric'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
 
 import type { LabelCanvasConfig, CanvasElement } from '@/types/editor'
@@ -21,6 +21,21 @@ type FabricLabelWithElementId = Text & {
 }
 type FabricPrintOrderWithElementId = Text & {
   printOrderForElementId: string
+}
+
+type EditingTextState = {
+  elementId: string
+  value: string
+  left: number
+  top: number
+  width: number
+  height: number
+  angle: number
+  fontSize: number
+  fontWeight: string
+  fontStyle: string
+  textAlign: CanvasElement['style']['textAlign']
+  lineHeight: number
 }
 
 const ELEMENT_PADDING_PX = 4
@@ -393,11 +408,30 @@ export function FabricCanvas() {
   const selectedElementId = useEditorStore((state) => state.selectedElementId)
   const selectElement = useEditorStore((state) => state.selectElement)
   const updateElement = useEditorStore((state) => state.updateElement)
+  const [editingText, setEditingText] = useState<EditingTextState | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const canvasElementRef = useRef<HTMLCanvasElement | null>(null)
   const fabricCanvasRef = useRef<FabricCanvasInstance | null>(null)
 
   const isSyncintSelectionRef = useRef(false)
+
+  const finishTextEditing = () => {
+    if (!editingText) {
+      return
+    }
+    updateElement(editingText.elementId, {
+      text: editingText.value,
+    })
+    setEditingText(null)
+  }
+  const cancelTextEditing = () => {
+    setEditingText(null)
+  }
+  useEffect(() => {
+    textareaRef.current?.focus()
+    textareaRef.current?.select()
+  }, [editingText?.elementId])
 
   // 容器初始化
   useEffect(() => {
@@ -452,10 +486,46 @@ export function FabricCanvas() {
           : {}),
       })
     }
+
+    const handleGroupDoubleClick = (event: { target?: unknown }) => {
+      const elementId = getElementIdFromFabricObject(event.target)
+      if (!elementId) {
+        return
+      }
+      const currentElement = useEditorStore
+        .getState()
+        .elements.find((element) => element.id === elementId)
+      if (!currentElement) {
+        return
+      }
+      selectElement(elementId)
+
+      setEditingText({
+        elementId,
+        value: currentElement.text,
+        left: mmToPx(currentElement.xMm) + ELEMENT_PADDING_PX,
+        top: mmToPx(currentElement.yMm) + ELEMENT_PADDING_PX,
+        width: Math.max(
+          mmToPx(currentElement.widthMm) - ELEMENT_PADDING_PX * 2,
+          0,
+        ),
+        height: Math.max(
+          mmToPx(currentElement.heightMm) - ELEMENT_PADDING_PX * 2,
+          0,
+        ),
+        angle: currentElement.angle,
+        fontSize: currentElement.style.fontSize,
+        fontWeight: currentElement.style.bold ? '700' : '400',
+        fontStyle: currentElement.style.italic ? 'italic' : 'normal',
+        textAlign: currentElement.style.textAlign,
+        lineHeight: currentElement.style.lineHeight,
+      })
+    }
     fabricCanvas.on('selection:created', handleSelectionChange)
     fabricCanvas.on('selection:updated', handleSelectionChange)
     fabricCanvas.on('selection:cleared', handleSelectionCleard)
     fabricCanvas.on('object:modified', handleObjectModified)
+    fabricCanvas.on('mouse:dblclick', handleGroupDoubleClick)
 
     fabricCanvasRef.current = fabricCanvas
     fabricCanvas.requestRenderAll()
@@ -464,6 +534,7 @@ export function FabricCanvas() {
       fabricCanvas.off('selection:updated', handleSelectionChange)
       fabricCanvas.off('selection:cleared', handleSelectionCleard)
       fabricCanvas.off('object:modified', handleObjectModified)
+      fabricCanvas.off('mouse:dblclick', handleGroupDoubleClick)
       fabricCanvasRef.current = null
       void fabricCanvas.dispose()
     }
@@ -572,13 +643,53 @@ export function FabricCanvas() {
 
   return (
     <div
-      className="border border-slate-300 bg-white shadow-sm"
+      // className="border border-slate-300 bg-white shadow-sm"
+      className="relative border border-slate-300 bg-white shadow-sm"
       style={{
         width: canvasWidthPx,
         height: canvasHeightPx,
       }}
     >
       <canvas ref={canvasElementRef} />
+      {editingText ? (
+        <textarea
+          ref={textareaRef}
+          className="absolute z-10 resize-none border border-cyan-500 bg-white/95 p-0 text-slate-900 outline-none ring-2 ring-cyan-200"
+          style={{
+            left: editingText.left,
+            top: editingText.top,
+            width: editingText.width,
+            height: editingText.height,
+            fontSize: editingText.fontSize,
+            fontWeight: editingText.fontWeight,
+            fontStyle: editingText.fontStyle,
+            textAlign: editingText.textAlign,
+            lineHeight: editingText.lineHeight,
+            transform: `rotate(${editingText.angle}deg)`,
+            transformOrigin: 'left top',
+          }}
+          value={editingText.value}
+          onBlur={finishTextEditing}
+          onChange={(event) =>
+            setEditingText({
+              ...editingText,
+              value: event.target.value,
+            })
+          }
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault()
+              cancelTextEditing()
+              return
+            }
+
+            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault()
+              finishTextEditing()
+            }
+          }}
+        />
+      ) : null}
     </div>
   )
 }
