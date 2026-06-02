@@ -1,7 +1,7 @@
 import type { LabelCanvasConfig } from '@/types/editor'
 
 export const LABEL_CANVAS_CONFIG: LabelCanvasConfig = {
-  widthMm: 60,
-  heightMm: 40,
+  widthMm: 90,
+  heightMm: 60,
   pxPerMm: 8,
 }

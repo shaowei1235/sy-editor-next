@@ -10,34 +10,19 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
 import type { CanvasElement, LabelCanvasConfig } from '@/types/editor'
+import type {
+  EditingTextState,
+  FabricGroupWithElementId,
+  FabricLabelWithElementId,
+  FabricPrintOrderWithElementId,
+} from '@/components/editor/fabric/types'
+import {
+  getCanvasHeightPx,
+  getCanvasWidthPx,
+  mmToPx,
+  pxToMm,
+} from '@/components/editor/fabric/units'
 // import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
-
-type FabricGroupWithElementId = Group & {
-  elementId: string
-  borderEnabled: boolean
-  verticalAlign: CanvasElement['style']['verticalAlign']
-}
-type FabricLabelWithElementId = Text & {
-  labelForElementId: string
-}
-type FabricPrintOrderWithElementId = Text & {
-  printOrderForElementId: string
-}
-
-type EditingTextState = {
-  elementId: string
-  value: string
-  left: number
-  top: number
-  width: number
-  height: number
-  angle: number
-  fontSize: number
-  fontWeight: string
-  fontStyle: string
-  textAlign: CanvasElement['style']['textAlign']
-  lineHeight: number
-}
 
 const ELEMENT_PADDING_PX = 4
 const DEFAULT_RECT_FILL = '#ffffff'
@@ -147,14 +132,6 @@ const resizeElementGroup = (group: FabricGroupWithElementId) => {
 // const mmToPx = (valueMm: number) => valueMm * LABEL_CANVAS_CONFIG.pxPerMm
 // const pxToMm = (valuePx: number) =>
 //   Number((valuePx / LABEL_CANVAS_CONFIG.pxPerMm).toFixed(2))
-const getCanvasWidthPx = (canvasConfig: LabelCanvasConfig) =>
-  canvasConfig.widthMm * canvasConfig.pxPerMm
-const getCanvasHeightPx = (canvasConfig: LabelCanvasConfig) =>
-  canvasConfig.heightMm * canvasConfig.pxPerMm
-const mmToPx = (valueMm: number, canvasConfig: LabelCanvasConfig) =>
-  valueMm * canvasConfig.pxPerMm
-const pxToMm = (valuePx: number, canvasConfig: LabelCanvasConfig) =>
-  Number((valuePx / canvasConfig.pxPerMm).toFixed(2))
 
 const syncPositionFromGroup = (group: FabricGroupWithElementId) => ({
   xMm: pxToMm(group.left ?? 0, useEditorStore.getState().canvasConfig),
