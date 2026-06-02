@@ -84,12 +84,14 @@ const syncGroupToElementSize = (
   // 父盒子中心点的相对坐标
   const left = -widthPx / 2
   const top = -heightPx / 2
+  const rectStrokeWidth = rect?.strokeWidth ?? 0
+  const rectStrokeOffset = rectStrokeWidth / 2
 
   rect?.set({
-    left,
-    top,
-    width: widthPx,
-    height: heightPx,
+    left: left + rectStrokeOffset,
+    top: top + rectStrokeOffset,
+    width: Math.max(widthPx - rectStrokeWidth, 0),
+    height: Math.max(heightPx - rectStrokeWidth, 0),
     scaleX: 1,
     scaleY: 1,
   })

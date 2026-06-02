@@ -35,7 +35,7 @@ const DEFAULT_TEXT_STYLE: TextStyle = {
   lineHeight: 1.2,
   autoWrap: true,
   equalSpacing: false,
-  border: false,
+  border: true,
 }
 
 // 画布id

@@ -132,11 +132,11 @@ export function StyleToolbar({
       <label className="flex h-8 items-center gap-2 rounded border border-slate-300 px-3 text-sm font-medium text-slate-700 has-disabled:cursor-not-allowed has-disabled:bg-slate-100 has-disabled:text-slate-400">
         <input
           type="checkbox"
-          checked={style?.border ?? false}
+          checked={style ? !style.border : false}
           disabled={disabled}
-          onChange={(event) => onUpdateStyle({ border: event.target.checked })}
+          onChange={(event) => onUpdateStyle({ border: !event.target.checked })}
         />
-        边框
+        无边框
       </label>
     </div>
   )
