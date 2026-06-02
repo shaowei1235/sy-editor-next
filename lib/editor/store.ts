@@ -1,8 +1,15 @@
 import { create } from 'zustand'
 
-import type { CanvasElement, FieldDefinition, TextStyle } from '@/types/editor'
+import type {
+  CanvasElement,
+  FieldDefinition,
+  TextStyle,
+  LabelCanvasConfig,
+} from '@/types/editor'
+import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
 
 type EditorStore = {
+  canvasConfig: LabelCanvasConfig
   elements: CanvasElement[]
   selectedElementId: string | null
   addElementFromField: (field: FieldDefinition) => void
@@ -10,6 +17,10 @@ type EditorStore = {
   updateElement: (id: string, partial: Partial<CanvasElement>) => void
   removeElement: (id: string) => void
   reorderElementsByIds: (orderedIds: string[]) => void
+  loadEditorState: (state: {
+    canvasConfig: LabelCanvasConfig
+    elements: CanvasElement[]
+  }) => void
 }
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
@@ -31,6 +42,7 @@ const DEFAULT_TEXT_STYLE: TextStyle = {
 const createElementId = () => crypto.randomUUID()
 
 export const useEditorStore = create<EditorStore>((set) => ({
+  canvasConfig: LABEL_CANVAS_CONFIG,
   elements: [],
   selectedElementId: null,
 
@@ -92,5 +104,11 @@ export const useEditorStore = create<EditorStore>((set) => ({
           printOrder: printOrderById.get(element.id) ?? element.printOrder,
         })),
       }
+    }),
+  loadEditorState: (state) =>
+    set({
+      canvasConfig: state.canvasConfig,
+      elements: state.elements,
+      selectedElementId: null,
     }),
 }))

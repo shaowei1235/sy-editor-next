@@ -9,8 +9,8 @@ import {
 } from 'fabric'
 import { useEffect, useRef, useState } from 'react'
 import { useEditorStore } from '@/lib/editor/store'
-import type { CanvasElement } from '@/types/editor'
-import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
+import type { CanvasElement, LabelCanvasConfig } from '@/types/editor'
+// import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
 
 type FabricGroupWithElementId = Group & {
   elementId: string
@@ -138,24 +138,33 @@ const resizeElementGroup = (group: FabricGroupWithElementId) => {
 // Fabric Canvas 实际使用的是像素尺寸。
 // const canvasWidthPx = CANVAS_CONFIG.widthMm * CANVAS_CONFIG.pxPerMm
 // const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
-const canvasWidthPx = LABEL_CANVAS_CONFIG.widthMm * LABEL_CANVAS_CONFIG.pxPerMm
-const canvasHeightPx =
-  LABEL_CANVAS_CONFIG.heightMm * LABEL_CANVAS_CONFIG.pxPerMm
+// const canvasWidthPx = LABEL_CANVAS_CONFIG.widthMm * LABEL_CANVAS_CONFIG.pxPerMm
+// const canvasHeightPx =
+//   LABEL_CANVAS_CONFIG.heightMm * LABEL_CANVAS_CONFIG.pxPerMm
 
-const mmToPx = (valueMm: number) => valueMm * LABEL_CANVAS_CONFIG.pxPerMm
-const pxToMm = (valuePx: number) =>
-  Number((valuePx / LABEL_CANVAS_CONFIG.pxPerMm).toFixed(2))
+// const mmToPx = (valueMm: number) => valueMm * LABEL_CANVAS_CONFIG.pxPerMm
+// const pxToMm = (valuePx: number) =>
+//   Number((valuePx / LABEL_CANVAS_CONFIG.pxPerMm).toFixed(2))
+const getCanvasWidthPx = (canvasConfig: LabelCanvasConfig) =>
+  canvasConfig.widthMm * canvasConfig.pxPerMm
+const getCanvasHeightPx = (canvasConfig: LabelCanvasConfig) =>
+  canvasConfig.heightMm * canvasConfig.pxPerMm
+const mmToPx = (valueMm: number, canvasConfig: LabelCanvasConfig) =>
+  valueMm * canvasConfig.pxPerMm
+const pxToMm = (valuePx: number, canvasConfig: LabelCanvasConfig) =>
+  Number((valuePx / canvasConfig.pxPerMm).toFixed(2))
 
 const syncPositionFromGroup = (group: FabricGroupWithElementId) => ({
-  xMm: pxToMm(group.left ?? 0),
-  yMm: pxToMm(group.top ?? 0),
+  xMm: pxToMm(group.left ?? 0, useEditorStore.getState().canvasConfig),
+  yMm: pxToMm(group.top ?? 0, useEditorStore.getState().canvasConfig),
 })
 
 const syncSizeFromGroup = (group: FabricGroupWithElementId) => {
   const { widthPx, heightPx } = resizeElementGroup(group)
+  const canvasConfig = useEditorStore.getState().canvasConfig
   return {
-    widthMm: pxToMm(widthPx),
-    heightMm: pxToMm(heightPx),
+    widthMm: pxToMm(widthPx, canvasConfig),
+    heightMm: pxToMm(heightPx, canvasConfig),
   }
 }
 
@@ -169,9 +178,12 @@ const hasGroupScaleChanged = (group: FabricGroupWithElementId) =>
   Math.abs((group.scaleX ?? 1) - 1) > 0.01 ||
   Math.abs((group.scaleY ?? 1) - 1) > 0.01
 
-const createElementGroup = (element: CanvasElement) => {
-  const rectWidthPx = mmToPx(element.widthMm)
-  const rectHeightPx = mmToPx(element.heightMm)
+const createElementGroup = (
+  element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
+) => {
+  const rectWidthPx = mmToPx(element.widthMm, canvasConfig)
+  const rectHeightPx = mmToPx(element.heightMm, canvasConfig)
   const textWidthPx = Math.max(rectWidthPx - ELEMENT_PADDING_PX * 2, 0)
 
   const rect = new Rect({
@@ -209,8 +221,8 @@ const createElementGroup = (element: CanvasElement) => {
   })
 
   const group = new Group([rect, textbox], {
-    left: mmToPx(element.xMm),
-    top: mmToPx(element.yMm),
+    left: mmToPx(element.xMm, canvasConfig),
+    top: mmToPx(element.yMm, canvasConfig),
     originX: 'left',
     originY: 'top',
     width: rectWidthPx,
@@ -228,9 +240,10 @@ const createElementGroup = (element: CanvasElement) => {
 const updateElementGroup = (
   group: FabricGroupWithElementId,
   element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
 ) => {
-  const widthPx = mmToPx(element.widthMm)
-  const heightPx = mmToPx(element.heightMm)
+  const widthPx = mmToPx(element.widthMm, canvasConfig)
+  const heightPx = mmToPx(element.heightMm, canvasConfig)
   const [rect, textbox] = group.getObjects()
 
   // syncGroupToElementSize(group, widthPx, heightPx)
@@ -255,8 +268,8 @@ const updateElementGroup = (
   })
   syncGroupToElementSize(group, widthPx, heightPx)
   group.set({
-    left: mmToPx(element.xMm),
-    top: mmToPx(element.yMm),
+    left: mmToPx(element.xMm, canvasConfig),
+    top: mmToPx(element.yMm, canvasConfig),
     width: widthPx,
     height: heightPx,
     angle: element.angle,
@@ -293,10 +306,13 @@ const updateGroupSelectionStyle = (
   })
 }
 
-const createElementLabel = (element: CanvasElement) => {
+const createElementLabel = (
+  element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
+) => {
   const label = new Text(element.displayName, {
-    left: mmToPx(element.xMm),
-    top: Math.max(mmToPx(element.yMm) - LABEL_OFFSET_Y, 0),
+    left: mmToPx(element.xMm, canvasConfig),
+    top: Math.max(mmToPx(element.yMm, canvasConfig) - LABEL_OFFSET_Y, 0),
     fontSize: LABEL_FONT_SIZE,
     fill: LABEL_FILL,
     selectable: false,
@@ -310,11 +326,12 @@ const createElementLabel = (element: CanvasElement) => {
 const updateElementLabel = (
   label: FabricLabelWithElementId,
   element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
 ) => {
   label.set({
     text: element.displayName,
-    left: mmToPx(element.xMm),
-    top: Math.max(mmToPx(element.yMm) - LABEL_OFFSET_Y, 0),
+    left: mmToPx(element.xMm, canvasConfig),
+    top: Math.max(mmToPx(element.yMm, canvasConfig) - LABEL_OFFSET_Y, 0),
   })
   label.setCoords()
 }
@@ -332,15 +349,21 @@ const findLabelByElementId = (
         object.labelForElementId === elementId,
     )
 
-const getPrintOrderPosition = (element: CanvasElement) => {
+const getPrintOrderPosition = (
+  element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
+) => {
   return {
-    left: mmToPx(element.xMm + element.widthMm),
-    top: mmToPx(element.yMm + element.heightMm),
+    left: mmToPx(element.xMm + element.widthMm, canvasConfig),
+    top: mmToPx(element.yMm + element.heightMm, canvasConfig),
   }
 }
 
-const createElementPrintOrder = (element: CanvasElement) => {
-  const printOrderPosition = getPrintOrderPosition(element)
+const createElementPrintOrder = (
+  element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
+) => {
+  const printOrderPosition = getPrintOrderPosition(element, canvasConfig)
   const printOrder = new Text(String(element.printOrder), {
     ...printOrderPosition,
     originX: 'right',
@@ -361,10 +384,11 @@ const createElementPrintOrder = (element: CanvasElement) => {
 const updateElementPrintOrder = (
   printOrder: FabricPrintOrderWithElementId,
   element: CanvasElement,
+  canvasConfig: LabelCanvasConfig,
 ) => {
   printOrder.set({
     text: String(element.printOrder),
-    ...getPrintOrderPosition(element),
+    ...getPrintOrderPosition(element, canvasConfig),
   })
   printOrder.setCoords()
 }
@@ -410,6 +434,7 @@ const getTextboxTop = (
 }
 
 export function FabricCanvas() {
+  const canvasConfig = useEditorStore((state) => state.canvasConfig)
   const elements = useEditorStore((state) => state.elements)
   const selectedElementId = useEditorStore((state) => state.selectedElementId)
   const selectElement = useEditorStore((state) => state.selectElement)
@@ -421,6 +446,8 @@ export function FabricCanvas() {
   const fabricCanvasRef = useRef<FabricCanvasInstance | null>(null)
 
   const isSyncintSelectionRef = useRef(false)
+  const canvasWidthPx = getCanvasWidthPx(canvasConfig)
+  const canvasHeightPx = getCanvasHeightPx(canvasConfig)
 
   const finishTextEditing = () => {
     if (!editingText) {
@@ -505,18 +532,23 @@ export function FabricCanvas() {
         return
       }
       selectElement(elementId)
+      const currentCanvasConfig = useEditorStore.getState().canvasConfig
 
       setEditingText({
         elementId,
         value: currentElement.text,
-        left: mmToPx(currentElement.xMm) + ELEMENT_PADDING_PX,
-        top: mmToPx(currentElement.yMm) + ELEMENT_PADDING_PX,
+        left:
+          mmToPx(currentElement.xMm, currentCanvasConfig) + ELEMENT_PADDING_PX,
+        top:
+          mmToPx(currentElement.yMm, currentCanvasConfig) + ELEMENT_PADDING_PX,
         width: Math.max(
-          mmToPx(currentElement.widthMm) - ELEMENT_PADDING_PX * 2,
+          mmToPx(currentElement.widthMm, currentCanvasConfig) -
+            ELEMENT_PADDING_PX * 2,
           0,
         ),
         height: Math.max(
-          mmToPx(currentElement.heightMm) - ELEMENT_PADDING_PX * 2,
+          mmToPx(currentElement.heightMm, currentCanvasConfig) -
+            ELEMENT_PADDING_PX * 2,
           0,
         ),
         angle: currentElement.angle,
@@ -544,7 +576,7 @@ export function FabricCanvas() {
       fabricCanvasRef.current = null
       void fabricCanvas.dispose()
     }
-  }, [selectElement, updateElement])
+  }, [selectElement, updateElement, canvasHeightPx, canvasWidthPx])
 
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
@@ -580,17 +612,17 @@ export function FabricCanvas() {
         // store 有、画布也有 -> 更新
         // 画布有、store 没有 -> 删除
         if (existingGroup) {
-          updateElementGroup(existingGroup, element)
+          updateElementGroup(existingGroup, element, canvasConfig)
           // return
         } else {
-          fabricCanvas.add(createElementGroup(element))
+          fabricCanvas.add(createElementGroup(element, canvasConfig))
           // fabricCanvas.add(createElementLabel(element))
         }
         const existingLabel = findLabelByElementId(fabricCanvas, element.id)
         if (existingLabel) {
-          updateElementLabel(existingLabel, element)
+          updateElementLabel(existingLabel, element, canvasConfig)
         } else {
-          fabricCanvas.add(createElementLabel(element))
+          fabricCanvas.add(createElementLabel(element, canvasConfig))
         }
         const existingPrintOrder = findPrintOrderByElementId(
           fabricCanvas,
@@ -598,9 +630,9 @@ export function FabricCanvas() {
         )
 
         if (existingPrintOrder) {
-          updateElementPrintOrder(existingPrintOrder, element)
+          updateElementPrintOrder(existingPrintOrder, element, canvasConfig)
         } else {
-          fabricCanvas.add(createElementPrintOrder(element))
+          fabricCanvas.add(createElementPrintOrder(element, canvasConfig))
         }
       })
     } finally {
@@ -608,7 +640,7 @@ export function FabricCanvas() {
     }
 
     fabricCanvas.requestRenderAll()
-  }, [elements])
+  }, [elements, canvasConfig])
 
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
