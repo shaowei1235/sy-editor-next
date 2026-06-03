@@ -38,6 +38,25 @@ const DEFAULT_TEXT_STYLE: TextStyle = {
   border: true,
 }
 
+// 保证 printOrder 从 1 开始连续递增，避免导入、删除、排序后出现跳号或重复。
+const normalizePrintOrder = (elements: CanvasElement[]) =>
+  elements
+    .map((element, originalIndex) => ({
+      element,
+      originalIndex,
+    }))
+    .sort((leftItem, rightItem) => {
+      if (leftItem.element.printOrder !== rightItem.element.printOrder) {
+        return leftItem.element.printOrder - rightItem.element.printOrder
+      }
+
+      return leftItem.originalIndex - rightItem.originalIndex
+    })
+    .map(({ element }, index) => ({
+      ...element,
+      printOrder: index + 1,
+    }))
+
 // 画布id
 const createElementId = () => crypto.randomUUID()
 
@@ -86,12 +105,9 @@ export const useEditorStore = create<EditorStore>((set) => ({
   },
   removeElement: (id) => {
     set((state) => {
-      const remainingElements = state.elements
-        .filter((e) => e.id !== id)
-        .map((e, index) => ({
-          ...e,
-          printOrder: index + 1,
-        }))
+      const remainingElements = normalizePrintOrder(
+        state.elements.filter((element) => element.id !== id),
+      )
       return {
         elements: remainingElements,
         selectedElementId: null,
@@ -105,16 +121,18 @@ export const useEditorStore = create<EditorStore>((set) => ({
       )
 
       return {
-        elements: state.elements.map((element) => ({
-          ...element,
-          printOrder: printOrderById.get(element.id) ?? element.printOrder,
-        })),
+        elements: normalizePrintOrder(
+          state.elements.map((element) => ({
+            ...element,
+            printOrder: printOrderById.get(element.id) ?? element.printOrder,
+          })),
+        ),
       }
     }),
   loadEditorState: (state) =>
     set({
       canvasConfig: state.canvasConfig,
-      elements: state.elements,
+      elements: normalizePrintOrder(state.elements),
       selectedElementId: null,
     }),
 }))
