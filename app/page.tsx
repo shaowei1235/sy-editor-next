@@ -76,6 +76,7 @@ export default function Home() {
 
         <section className="flex flex-col p-8">
           <EditorTopBar
+            hasExistingElements={elements.length > 0}
             canDeleteElement={selectedElementId !== null}
             canSaveJson={canSaveJson}
             onDeleteElement={handleDeleteElement}

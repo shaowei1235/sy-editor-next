@@ -5,6 +5,7 @@ import { type ChangeEvent, useRef } from 'react'
 type EditorTopBarProps = {
   canDeleteElement: boolean
   canSaveJson: boolean
+  hasExistingElements: boolean
   onDeleteElement: () => void
   onReadJsonFile: (file: File) => void
   onSaveJson: () => void
@@ -13,6 +14,7 @@ type EditorTopBarProps = {
 export function EditorTopBar({
   canDeleteElement,
   canSaveJson,
+  hasExistingElements,
   onDeleteElement,
   onReadJsonFile,
   onSaveJson,
@@ -20,6 +22,16 @@ export function EditorTopBar({
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleReadJsonClick = () => {
+    if (hasExistingElements) {
+      const confirmed = window.confirm(
+        '現在のデザインが上書きされます。保存していない場合は先にJSON保存してください。続行しますか？',
+      )
+
+      if (!confirmed) {
+        return
+      }
+    }
+
     fileInputRef.current?.click()
   }
 
