@@ -5,25 +5,12 @@ import { useEditorStore } from '@/lib/editor/store'
 import { FabricCanvas } from '@/components/editor/FabricCanvas'
 import { PrintOrderPanel } from '@/components/editor/PrintOrderPanel'
 import { StyleToolbar } from '@/components/editor/StyleToolbar'
-import type {
-  CanvasElement,
-  LabelCanvasConfig,
-  TextStyle,
-} from '@/types/editor'
-
-type LabelDesingnJson = {
-  canvasConfig: LabelCanvasConfig
-  elements: CanvasElement[]
-}
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null
-const isCanvasConfig = (value: unknown): value is LabelCanvasConfig =>
-  isRecord(value) &&
-  typeof value.widthMm === 'number' &&
-  typeof value.heightMm === 'number' &&
-  typeof value.pxPerMm === 'number'
-
-// const printItems = ['商品名', '価格', 'バーコード']
+import type { TextStyle } from '@/types/editor'
+import { createLabelDesignJson } from '@/lib/editor/labelDesignJson'
+import {
+  downloadLabelDesignJsonFile,
+  readLabelDesignJsonFile,
+} from '@/lib/editor/labelDesignFile'
 
 export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -56,34 +43,7 @@ export default function Home() {
     if (!canSaveJson) {
       return
     }
-    const exportData = {
-      // canvasConfig: LABEL_CANVAS_CONFIG,
-      canvasConfig,
-      elements: elements.map((element) => ({
-        id: element.id,
-        fieldKey: element.fieldKey,
-        fieldLabel: element.fieldLabel,
-        instanceNo: element.instanceNo,
-        displayName: element.displayName,
-        printOrder: element.printOrder,
-        xMm: element.xMm,
-        yMm: element.yMm,
-        widthMm: element.widthMm,
-        heightMm: element.heightMm,
-        angle: element.angle,
-        text: element.text,
-        style: element.style,
-      })),
-    }
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'label-design.json'
-    link.click()
-    URL.revokeObjectURL(url)
+    downloadLabelDesignJsonFile(createLabelDesignJson(canvasConfig, elements))
   }
 
   const handleReadJsonClick = () => {
@@ -96,27 +56,9 @@ export default function Home() {
       return
     }
     try {
-      const fileText = await file.text()
-      const parsedJson = JSON.parse(fileText) as unknown
-      if (!isRecord(parsedJson)) {
-        alert('JSON形式が正しくありません')
-        return
-      }
-      if (!Array.isArray(parsedJson.elements)) {
-        alert('JSONにelementsがありません')
-        return
-      }
-      if (!isCanvasConfig(parsedJson.canvasConfig)) {
-        alert('JSONのcanvas config形式が正しくありません')
-        return
-      }
-      const labelDesign: LabelDesingnJson = {
-        canvasConfig: parsedJson.canvasConfig,
-        elements: parsedJson.elements as CanvasElement[],
-      }
+      const labelDesign = await readLabelDesignJsonFile(file)
       loadEditorState(labelDesign)
-    } catch (error) {
-      console.error(error)
+    } catch {
       alert('JSON形式が正しくありません')
     }
   }
