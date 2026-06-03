@@ -1,4 +1,4 @@
-import type { Group, Text } from 'fabric'
+import type { Group } from 'fabric'
 
 import type { CanvasElement } from '@/types/editor'
 
@@ -6,14 +6,6 @@ export type FabricGroupWithElementId = Group & {
   elementId: string
   borderEnabled: boolean
   verticalAlign: CanvasElement['style']['verticalAlign']
-}
-
-export type FabricLabelWithElementId = Text & {
-  labelForElementId: string
-}
-
-export type FabricPrintOrderWithElementId = Text & {
-  printOrderForElementId: string
 }
 
 export type EditingTextState = {

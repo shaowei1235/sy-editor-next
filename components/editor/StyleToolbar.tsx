@@ -37,7 +37,7 @@ export function StyleToolbar({
           min={8}
           max={96}
           step={1}
-          value={style?.fontSize ?? 16}
+          value={style?.fontSize ?? 20}
           disabled={disabled}
           onChange={(event) =>
             onUpdateStyle({ fontSize: Number(event.target.value) })

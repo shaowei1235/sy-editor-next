@@ -24,7 +24,7 @@ type EditorStore = {
 }
 
 const DEFAULT_TEXT_STYLE: TextStyle = {
-  fontSize: 16,
+  fontSize: 20,
   bold: false,
   italic: false,
   underline: false,

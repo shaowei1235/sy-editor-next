@@ -2,6 +2,7 @@ import {
   Group,
   Rect,
   Textbox,
+  Text,
   type Canvas as FabricCanvasInstance,
 } from 'fabric'
 
@@ -15,6 +16,12 @@ const DEFAULT_RECT_FILL = '#ffffff'
 const DEFAULT_RECT_STROKE = '#cbd5e1'
 const SELECTED_RECT_STROKE = '#06b6d4'
 const TEXT_FILL = '#111827'
+const LABEL_FILL = '#64748b'
+const LABEL_FONT_SIZE = 10
+const BADGE_FILL = '#ffffff'
+const BADGE_BACKGROUND = '#ef4444'
+const BADGE_FONT_SIZE = 12
+const BADGE_OFFSET_PX = 2
 
 export const getElementIdFromFabricObject = (object: unknown) => {
   if (object instanceof Group && 'elementId' in object) {
@@ -55,7 +62,8 @@ export const syncGroupToElementSize = (
   widthPx: number,
   heightPx: number,
 ) => {
-  const [rect, textbox] = group.getObjects()
+  // const [rect, textbox] = group.getObjects()
+  const [rect, textbox, label, badge] = group.getObjects()
   const left = -widthPx / 2
   const top = -heightPx / 2
   const rectStrokeWidth = rect?.strokeWidth ?? 0
@@ -82,6 +90,19 @@ export const syncGroupToElementSize = (
       top: getTextboxTop(textbox, heightPx, group.verticalAlign),
     })
   }
+  label?.set({
+    left: left + ELEMENT_PADDING_PX,
+    top: top + 2,
+    scaleX: 1,
+    scaleY: 1,
+  })
+
+  badge?.set({
+    left: widthPx / 2 - BADGE_OFFSET_PX,
+    top: heightPx / 2 - BADGE_OFFSET_PX,
+    scaleX: 1,
+    scaleY: 1,
+  })
 }
 
 export const updateGroupSelectionStyle = (
@@ -190,7 +211,33 @@ export const createElementGroup = (
     evented: false,
   })
 
-  const group = new Group([rect, textbox], {
+  // label 和 badge 是编辑辅助信息
+  const label = new Text(element.displayName, {
+    left: ELEMENT_PADDING_PX,
+    top: 2,
+    originX: 'left',
+    originY: 'top',
+    fontSize: LABEL_FONT_SIZE,
+    fill: LABEL_FILL,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+  })
+
+  const badge = new Text(String(element.printOrder), {
+    left: rectWidthPx - BADGE_OFFSET_PX,
+    top: rectHeightPx - BADGE_OFFSET_PX,
+    originX: 'right',
+    originY: 'bottom',
+    fontSize: BADGE_FONT_SIZE,
+    fill: BADGE_FILL,
+    backgroundColor: BADGE_BACKGROUND,
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+  })
+
+  const group = new Group([rect, textbox, label, badge], {
     left: mmToPx(element.xMm, canvasConfig),
     top: mmToPx(element.yMm, canvasConfig),
     originX: 'left',
@@ -215,7 +262,8 @@ export const updateElementGroup = (
 ) => {
   const widthPx = mmToPx(element.widthMm, canvasConfig)
   const heightPx = mmToPx(element.heightMm, canvasConfig)
-  const [rect, textbox] = group.getObjects()
+  // const [rect, textbox] = group.getObjects()
+  const [rect, textbox, label, badge] = group.getObjects()
 
   group.borderEnabled = element.style.border
   group.verticalAlign = element.style.verticalAlign
@@ -235,6 +283,12 @@ export const updateElementGroup = (
     lineHeight: element.style.lineHeight,
     charSpacing: element.style.letterSpacing,
     splitByGrapheme: element.style.autoWrap,
+  })
+  label?.set({
+    text: element.displayName,
+  })
+  badge?.set({
+    text: String(element.printOrder),
   })
   syncGroupToElementSize(group, widthPx, heightPx)
 
