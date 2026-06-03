@@ -12,7 +12,7 @@ export const FIELD_DEFINITIONS: FieldDefinition[] = [
   },
   {
     key: 'productName',
-    label: '商品名称',
+    label: '商品名',
     category: '商品情報',
     kind: 'text',
     defaultText: 'サンプル商品',

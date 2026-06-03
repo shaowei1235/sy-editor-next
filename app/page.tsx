@@ -101,15 +101,15 @@ export default function Home() {
       const fileText = await file.text()
       const parsedJson = JSON.parse(fileText) as unknown
       if (!isRecord(parsedJson)) {
-        alert('JSON格式错误')
+        alert('JSON形式が正しくありません')
         return
       }
       if (!Array.isArray(parsedJson.elements)) {
-        alert('JSON中缺少elements')
+        alert('JSONにelementsがありません')
         return
       }
       if (!isCanvasConfig(parsedJson.canvasConfig)) {
-        alert('JSON中canvasConfig格式错误')
+        alert('JSONのcanvas config形式が正しくありません')
         return
       }
       const labelDesign: LabelDesingnJson = {
@@ -119,6 +119,7 @@ export default function Home() {
       loadEditorState(labelDesign)
     } catch (error) {
       console.error(error)
+      alert('JSON形式が正しくありません')
     }
   }
 
@@ -130,8 +131,10 @@ export default function Home() {
         <section className="flex flex-col p-8">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold">标签编辑器</h1>
-              <p className="mt-1 text-sm text-slate-500"></p>
+              <h1 className="text-2xl font-bold">ラベルエディター</h1>
+              <p className="mt-1 text-sm text-slate-500">
+                商品ラベルの項目配置、編集、印字順を管理できます。
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -146,7 +149,7 @@ export default function Home() {
                 onClick={handleReadJsonClick}
                 className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
               >
-                读取JSON
+                JSON読込
               </button>
               <button
                 type="button"
@@ -154,7 +157,7 @@ export default function Home() {
                 disabled={!canSaveJson}
                 className="rounded-md bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
               >
-                保存JSON
+                JSON保存
               </button>
             </div>
           </div>

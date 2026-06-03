@@ -122,11 +122,11 @@ export function PrintOrderPanel() {
 
   return (
     <aside className="border-l border-slate-200 bg-white p-6">
-      <h2 className="text-lg font-semibold">打印顺序列表</h2>
+      <h2 className="text-lg font-semibold">印字順リスト</h2>
 
       {sortedElements.length === 0 ? (
         <p className="mt-5 rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-          还没有添加字段
+          まだ項目が追加されていません
         </p>
       ) : (
         <DndContext

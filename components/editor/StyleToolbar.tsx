@@ -12,9 +12,12 @@ const verticalAlignOptions: Array<{
   label: string
   value: TextStyle['verticalAlign']
 }> = [
-  { label: '上对齐', value: 'top' },
-  { label: '垂直居中', value: 'middle' },
-  { label: '下对齐', value: 'bottom' },
+  // { label: '上对齐', value: 'top' },
+  // { label: '垂直居中', value: 'middle' },
+  // { label: '下对齐', value: 'bottom' },
+  { label: '上揃え', value: 'top' },
+  { label: '上下中央', value: 'middle' },
+  { label: '下揃え', value: 'bottom' },
 ]
 
 export function StyleToolbar({
@@ -27,9 +30,9 @@ export function StyleToolbar({
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white px-4 py-3 shadow-sm">
       <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-        字号
+        文字サイズ
         <input
-          className="h-8 w-20 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="h-8 w-16 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           type="number"
           min={8}
           max={96}
@@ -41,10 +44,10 @@ export function StyleToolbar({
           }
         />
       </label>
-      <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-        字间距
+      <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
+        文字間隔
         <input
-          className="h-8 w-20 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="h-8 w-16 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           type="number"
           min={0}
           step={10}
@@ -57,9 +60,9 @@ export function StyleToolbar({
       </label>
 
       <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-        行高
+        行間
         <input
-          className="h-8 w-20 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          className="h-8 w-16 rounded border border-slate-300 px-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
           type="number"
           min={0.8}
           step={0.1}
@@ -136,7 +139,7 @@ export function StyleToolbar({
           disabled={disabled}
           onChange={(event) => onUpdateStyle({ border: !event.target.checked })}
         />
-        无边框
+        枠なし
       </label>
     </div>
   )

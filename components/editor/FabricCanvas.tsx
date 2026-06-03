@@ -228,7 +228,7 @@ export function FabricCanvas() {
 
   return (
     <div
-      className="relative border border-slate-300 bg-white shadow-sm"
+      className="relative box-content border border-slate-300 bg-white shadow-sm"
       style={{
         width: canvasWidthPx,
         height: canvasHeightPx,

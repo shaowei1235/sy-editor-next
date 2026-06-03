@@ -10,7 +10,7 @@ type FieldSidebarProps = {
 export function FieldSidebar({ onAddField }: FieldSidebarProps) {
   return (
     <aside className="border-r border-slate-200 bg-white p-6">
-      <h2 className="text-lg font-semibold">字段栏</h2>
+      <h2 className="text-lg font-semibold">項目一覧</h2>
       <div className="mt-5 grid grid-cols-2 gap-3">
         {FIELD_DEFINITIONS.map((field) => (
           <button
