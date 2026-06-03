@@ -131,9 +131,7 @@ export default function Home() {
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold">标签编辑器</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                基础页面骨架，后续逐步实现编辑能力。
-              </p>
+              <p className="mt-1 text-sm text-slate-500"></p>
             </div>
             <div className="flex items-center gap-2">
               <input

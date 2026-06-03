@@ -1,416 +1,30 @@
 'use client'
 
-import {
-  Canvas as FabricCanvasInstance,
-  Group,
-  Rect,
-  Textbox,
-  Text,
-} from 'fabric'
+import { Canvas as FabricCanvasInstance } from 'fabric'
 import { useEffect, useRef, useState } from 'react'
-import { useEditorStore } from '@/lib/editor/store'
-import type { CanvasElement, LabelCanvasConfig } from '@/types/editor'
+
+import {
+  syncCanvasObjectsToElements,
+  syncCanvasSelectionToElement,
+} from '@/components/editor/fabric/canvasSync'
+import {
+  ELEMENT_PADDING_PX,
+  getElementIdFromFabricObject,
+  hasGroupScaleChanged,
+  syncAngleFromGroup,
+  syncPositionFromGroup,
+  syncSizeFromGroup,
+} from '@/components/editor/fabric/elementGroup'
 import type {
   EditingTextState,
   FabricGroupWithElementId,
-  FabricLabelWithElementId,
-  FabricPrintOrderWithElementId,
 } from '@/components/editor/fabric/types'
 import {
   getCanvasHeightPx,
   getCanvasWidthPx,
   mmToPx,
-  pxToMm,
 } from '@/components/editor/fabric/units'
-// import { LABEL_CANVAS_CONFIG } from '@/types/editor/canvas'
-
-const ELEMENT_PADDING_PX = 4
-const DEFAULT_RECT_FILL = '#ffffff'
-const DEFAULT_RECT_STROKE = '#cbd5e1'
-const SELECTED_RECT_STROKE = '#06b6d4'
-const TEXT_FILL = '#111827'
-const LABEL_FILL = '#64748b'
-const LABEL_FONT_SIZE = 10
-const LABEL_OFFSET_Y = 14
-const PRINT_ORDER_FILL = '#ffffff'
-const PRINT_ORDER_BACKGROUND = '#ef4444'
-const PRINT_ORDER_FONT_SIZE = 20
-
-const getElementIdFromFabricObject = (object: unknown) => {
-  if (object instanceof Group && 'elementId' in object) {
-    return object.elementId as string
-  }
-
-  return null
-}
-
-const getLabelElementIdFromFabricObject = (object: unknown) => {
-  if (object instanceof Text && 'labelForElementId' in object) {
-    return object.labelForElementId as string
-  }
-
-  return null
-}
-
-const getPrintOrderElementIdFromFabricObject = (object: unknown) => {
-  if (object instanceof Text && 'printOrderForElementId' in object) {
-    return object.printOrderForElementId as string
-  }
-
-  return null
-}
-
-const syncGroupToElementSize = (
-  group: FabricGroupWithElementId,
-  widthPx: number,
-  heightPx: number,
-) => {
-  const [rect, textbox] = group.getObjects()
-  // 父盒子中心点的相对坐标
-  const left = -widthPx / 2
-  const top = -heightPx / 2
-  const rectStrokeWidth = rect?.strokeWidth ?? 0
-  const rectStrokeOffset = rectStrokeWidth / 2
-
-  rect?.set({
-    left: left + rectStrokeOffset,
-    top: top + rectStrokeOffset,
-    width: Math.max(widthPx - rectStrokeWidth, 0),
-    height: Math.max(heightPx - rectStrokeWidth, 0),
-    scaleX: 1,
-    scaleY: 1,
-  })
-
-  textbox?.set({
-    left: left + ELEMENT_PADDING_PX,
-    // top: top + ELEMENT_PADDING_PX,
-    width: Math.max(widthPx - ELEMENT_PADDING_PX * 2, 0),
-    scaleX: 1,
-    scaleY: 1,
-  })
-  // 垂直对齐
-  if (textbox instanceof Textbox) {
-    textbox.set({
-      top: getTextboxTop(textbox, heightPx, group.verticalAlign),
-    })
-  }
-}
-
-const resizeElementGroup = (group: FabricGroupWithElementId) => {
-  const actualWidthPx = (group.width ?? 0) * (group.scaleX ?? 1)
-  const actualHeightPx = (group.height ?? 0) * (group.scaleY ?? 1)
-
-  syncGroupToElementSize(group, actualWidthPx, actualHeightPx)
-
-  group.set({
-    width: actualWidthPx,
-    height: actualHeightPx,
-    scaleX: 1,
-    scaleY: 1,
-  })
-  group.setCoords()
-
-  return {
-    widthPx: actualWidthPx,
-    heightPx: actualHeightPx,
-  }
-}
-
-// const CANVAS_CONFIG: LabelCanvasConfig = {
-//   widthMm: 60,
-//   heightMm: 40,
-//   pxPerMm: 8,
-// }
-
-// Fabric Canvas 实际使用的是像素尺寸。
-// const canvasWidthPx = CANVAS_CONFIG.widthMm * CANVAS_CONFIG.pxPerMm
-// const canvasHeightPx = CANVAS_CONFIG.heightMm * CANVAS_CONFIG.pxPerMm
-// const canvasWidthPx = LABEL_CANVAS_CONFIG.widthMm * LABEL_CANVAS_CONFIG.pxPerMm
-// const canvasHeightPx =
-//   LABEL_CANVAS_CONFIG.heightMm * LABEL_CANVAS_CONFIG.pxPerMm
-
-// const mmToPx = (valueMm: number) => valueMm * LABEL_CANVAS_CONFIG.pxPerMm
-// const pxToMm = (valuePx: number) =>
-//   Number((valuePx / LABEL_CANVAS_CONFIG.pxPerMm).toFixed(2))
-
-const syncPositionFromGroup = (group: FabricGroupWithElementId) => ({
-  xMm: pxToMm(group.left ?? 0, useEditorStore.getState().canvasConfig),
-  yMm: pxToMm(group.top ?? 0, useEditorStore.getState().canvasConfig),
-})
-
-const syncSizeFromGroup = (group: FabricGroupWithElementId) => {
-  const { widthPx, heightPx } = resizeElementGroup(group)
-  const canvasConfig = useEditorStore.getState().canvasConfig
-  return {
-    widthMm: pxToMm(widthPx, canvasConfig),
-    heightMm: pxToMm(heightPx, canvasConfig),
-  }
-}
-
-const syncAngleFromGroup = (group: FabricGroupWithElementId) => ({
-  angle: Math.round(group.angle ?? 0),
-})
-
-// 当前修改是否包含缩放
-// syncSizeFromGroup()--->resizeElementGroup()导致旋转失效
-const hasGroupScaleChanged = (group: FabricGroupWithElementId) =>
-  Math.abs((group.scaleX ?? 1) - 1) > 0.01 ||
-  Math.abs((group.scaleY ?? 1) - 1) > 0.01
-
-const createElementGroup = (
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  const rectWidthPx = mmToPx(element.widthMm, canvasConfig)
-  const rectHeightPx = mmToPx(element.heightMm, canvasConfig)
-  const textWidthPx = Math.max(rectWidthPx - ELEMENT_PADDING_PX * 2, 0)
-
-  const rect = new Rect({
-    left: 0,
-    top: 0,
-    originX: 'left',
-    originY: 'top',
-    width: rectWidthPx,
-    height: rectHeightPx,
-    fill: DEFAULT_RECT_FILL,
-    stroke: element.style.border ? DEFAULT_RECT_STROKE : '',
-    strokeWidth: element.style.border ? 2 : 0,
-    selectable: false,
-    evented: false,
-  })
-
-  const textbox = new Textbox(element.text, {
-    left: ELEMENT_PADDING_PX,
-    top: ELEMENT_PADDING_PX,
-    originX: 'left',
-    originY: 'top',
-    width: textWidthPx,
-    fontSize: element.style.fontSize,
-    fontWeight: element.style.bold ? 'bold' : 'normal',
-    fontStyle: element.style.italic ? 'italic' : 'normal',
-    underline: element.style.underline,
-    textAlign: element.style.textAlign,
-    fill: TEXT_FILL,
-    backgroundColor: '',
-    lineHeight: element.style.lineHeight,
-    charSpacing: element.style.letterSpacing,
-    splitByGrapheme: element.style.autoWrap,
-    selectable: false,
-    evented: false,
-  })
-
-  const group = new Group([rect, textbox], {
-    left: mmToPx(element.xMm, canvasConfig),
-    top: mmToPx(element.yMm, canvasConfig),
-    originX: 'left',
-    originY: 'top',
-    width: rectWidthPx,
-    height: rectHeightPx,
-    angle: element.angle,
-  }) as FabricGroupWithElementId
-
-  group.elementId = element.id
-  group.borderEnabled = element.style.border
-  group.verticalAlign = element.style.verticalAlign
-  syncGroupToElementSize(group, rectWidthPx, rectHeightPx)
-  return group
-}
-
-const updateElementGroup = (
-  group: FabricGroupWithElementId,
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  const widthPx = mmToPx(element.widthMm, canvasConfig)
-  const heightPx = mmToPx(element.heightMm, canvasConfig)
-  const [rect, textbox] = group.getObjects()
-
-  // syncGroupToElementSize(group, widthPx, heightPx)
-  group.borderEnabled = element.style.border
-  group.verticalAlign = element.style.verticalAlign
-  rect?.set({
-    stroke: element.style.border ? DEFAULT_RECT_STROKE : '',
-    strokeWidth: element.style.border ? 2 : 0,
-  })
-  textbox?.set({
-    text: element.text,
-    fontSize: element.style.fontSize,
-    fontWeight: element.style.bold ? 'bold' : 'normal',
-    fontStyle: element.style.italic ? 'italic' : 'normal',
-    underline: element.style.underline,
-    textAlign: element.style.textAlign,
-    fill: TEXT_FILL,
-    backgroundColor: '',
-    lineHeight: element.style.lineHeight,
-    charSpacing: element.style.letterSpacing,
-    splitByGrapheme: element.style.autoWrap,
-  })
-  syncGroupToElementSize(group, widthPx, heightPx)
-  group.set({
-    left: mmToPx(element.xMm, canvasConfig),
-    top: mmToPx(element.yMm, canvasConfig),
-    width: widthPx,
-    height: heightPx,
-    angle: element.angle,
-    scaleX: 1,
-    scaleY: 1,
-  })
-  group.setCoords()
-}
-
-const findGroupByElementId = (
-  fabricCanvas: FabricCanvasInstance,
-  elementId: string,
-) =>
-  fabricCanvas
-    .getObjects()
-    .find(
-      (object): object is FabricGroupWithElementId =>
-        object instanceof Group &&
-        'elementId' in object &&
-        object.elementId === elementId,
-    )
-const updateGroupSelectionStyle = (
-  group: FabricGroupWithElementId,
-  isSelected: boolean,
-) => {
-  const [rect] = group.getObjects()
-  rect?.set({
-    stroke: group.borderEnabled
-      ? isSelected
-        ? SELECTED_RECT_STROKE
-        : DEFAULT_RECT_STROKE
-      : '',
-    strokeWidth: group.borderEnabled ? 2 : 0,
-  })
-}
-
-const createElementLabel = (
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  const label = new Text(element.displayName, {
-    left: mmToPx(element.xMm, canvasConfig),
-    top: Math.max(mmToPx(element.yMm, canvasConfig) - LABEL_OFFSET_Y, 0),
-    fontSize: LABEL_FONT_SIZE,
-    fill: LABEL_FILL,
-    selectable: false,
-    evented: false,
-    excludeFromExport: true,
-  }) as FabricLabelWithElementId
-  label.labelForElementId = element.id
-  return label
-}
-
-const updateElementLabel = (
-  label: FabricLabelWithElementId,
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  label.set({
-    text: element.displayName,
-    left: mmToPx(element.xMm, canvasConfig),
-    top: Math.max(mmToPx(element.yMm, canvasConfig) - LABEL_OFFSET_Y, 0),
-  })
-  label.setCoords()
-}
-
-const findLabelByElementId = (
-  fabricCanvas: FabricCanvasInstance,
-  elementId: string,
-) =>
-  fabricCanvas
-    .getObjects()
-    .find(
-      (object): object is FabricLabelWithElementId =>
-        object instanceof Text &&
-        'labelForElementId' in object &&
-        object.labelForElementId === elementId,
-    )
-
-const getPrintOrderPosition = (
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  return {
-    left: mmToPx(element.xMm + element.widthMm, canvasConfig),
-    top: mmToPx(element.yMm + element.heightMm, canvasConfig),
-  }
-}
-
-const createElementPrintOrder = (
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  const printOrderPosition = getPrintOrderPosition(element, canvasConfig)
-  const printOrder = new Text(String(element.printOrder), {
-    ...printOrderPosition,
-    originX: 'right',
-    originY: 'bottom',
-    fontSize: PRINT_ORDER_FONT_SIZE,
-    fill: PRINT_ORDER_FILL,
-    backgroundColor: PRINT_ORDER_BACKGROUND,
-    selectable: false,
-    evented: false,
-    excludeFromExport: true,
-  }) as FabricPrintOrderWithElementId
-
-  printOrder.printOrderForElementId = element.id
-
-  return printOrder
-}
-
-const updateElementPrintOrder = (
-  printOrder: FabricPrintOrderWithElementId,
-  element: CanvasElement,
-  canvasConfig: LabelCanvasConfig,
-) => {
-  printOrder.set({
-    text: String(element.printOrder),
-    ...getPrintOrderPosition(element, canvasConfig),
-  })
-  printOrder.setCoords()
-}
-
-const findPrintOrderByElementId = (
-  fabricCanvas: FabricCanvasInstance,
-  elementId: string,
-) =>
-  fabricCanvas
-    .getObjects()
-    .find(
-      (object): object is FabricPrintOrderWithElementId =>
-        object instanceof Text &&
-        'printOrderForElementId' in object &&
-        object.printOrderForElementId === elementId,
-    )
-
-// 内部元素的相对位置以group中心点为准
-const getTextboxTop = (
-  textbox: Textbox,
-  heightPx: number,
-  verticalAlign: CanvasElement['style']['verticalAlign'],
-) => {
-  textbox.initDimensions()
-
-  const textHeight = textbox.height ?? 0
-  const minTop = -heightPx / 2 + ELEMENT_PADDING_PX
-  const maxTop = heightPx / 2 - ELEMENT_PADDING_PX - textHeight
-
-  if (textHeight > heightPx - ELEMENT_PADDING_PX * 2) {
-    return minTop
-  }
-
-  if (verticalAlign === 'middle') {
-    return (minTop + maxTop) / 2
-  }
-
-  if (verticalAlign === 'bottom') {
-    return maxTop
-  }
-
-  return minTop
-}
+import { useEditorStore } from '@/lib/editor/store'
 
 export function FabricCanvas() {
   const canvasConfig = useEditorStore((state) => state.canvasConfig)
@@ -419,12 +33,11 @@ export function FabricCanvas() {
   const selectElement = useEditorStore((state) => state.selectElement)
   const updateElement = useEditorStore((state) => state.updateElement)
   const [editingText, setEditingText] = useState<EditingTextState | null>(null)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
-
+  // 原生 canvas DOM 节点
   const canvasElementRef = useRef<HTMLCanvasElement | null>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const fabricCanvasRef = useRef<FabricCanvasInstance | null>(null)
-
-  const isSyncintSelectionRef = useRef(false)
+  const isSyncingSelectionRef = useRef(false)
   const canvasWidthPx = getCanvasWidthPx(canvasConfig)
   const canvasHeightPx = getCanvasHeightPx(canvasConfig)
 
@@ -432,50 +45,57 @@ export function FabricCanvas() {
     if (!editingText) {
       return
     }
+
     updateElement(editingText.elementId, {
       text: editingText.value,
     })
     setEditingText(null)
   }
+
   const cancelTextEditing = () => {
     setEditingText(null)
   }
+
   useEffect(() => {
     textareaRef.current?.focus()
     textareaRef.current?.select()
   }, [editingText?.elementId])
 
-  // 容器初始化
   useEffect(() => {
     if (!canvasElementRef.current) {
       return
     }
+
+    // 组件挂载后创建 Fabric Canvas
     const fabricCanvas = new FabricCanvasInstance(canvasElementRef.current, {
       width: canvasWidthPx,
       height: canvasHeightPx,
-      backgroundColor: 'white',
+      backgroundColor: '#ffffff',
+      // 关闭 Retina 缩放
       enableRetinaScaling: false,
       selection: false,
     })
 
     const handleSelectionChange = () => {
-      if (isSyncintSelectionRef.current) {
+      if (isSyncingSelectionRef.current) {
         return
       }
+
       const activeObject = fabricCanvas.getActiveObject() as
         | FabricGroupWithElementId
         | undefined
-      selectElement(activeObject?.elementId || null)
+
+      selectElement(activeObject?.elementId ?? null)
     }
 
-    const handleSelectionCleard = () => {
-      if (isSyncintSelectionRef.current) {
+    const handleSelectionCleared = () => {
+      if (isSyncingSelectionRef.current) {
         return
       }
+
       selectElement(null)
     }
 
-    // 同步拖拽到store
     const handleObjectModified = (event: { target?: unknown }) => {
       const elementId = getElementIdFromFabricObject(event.target)
 
@@ -484,32 +104,35 @@ export function FabricCanvas() {
       }
 
       const targetObject = event.target as FabricGroupWithElementId
-      // const { widthPx, heightPx } = resizeElementGroup(targetObject)
+      const currentCanvasConfig = useEditorStore.getState().canvasConfig
       const partial = {
+        ...syncPositionFromGroup(targetObject, currentCanvasConfig),
         ...syncAngleFromGroup(targetObject),
-        ...syncPositionFromGroup(targetObject),
       }
 
-      // object:modified 在操作结束后触发
       updateElement(elementId, {
         ...partial,
         ...(hasGroupScaleChanged(targetObject)
-          ? syncSizeFromGroup(targetObject)
+          ? syncSizeFromGroup(targetObject, currentCanvasConfig)
           : {}),
       })
     }
 
     const handleGroupDoubleClick = (event: { target?: unknown }) => {
       const elementId = getElementIdFromFabricObject(event.target)
+
       if (!elementId) {
         return
       }
+
       const currentElement = useEditorStore
         .getState()
         .elements.find((element) => element.id === elementId)
+
       if (!currentElement) {
         return
       }
+
       selectElement(elementId)
       const currentCanvasConfig = useEditorStore.getState().canvasConfig
 
@@ -538,24 +161,27 @@ export function FabricCanvas() {
         lineHeight: currentElement.style.lineHeight,
       })
     }
+
     fabricCanvas.on('selection:created', handleSelectionChange)
     fabricCanvas.on('selection:updated', handleSelectionChange)
-    fabricCanvas.on('selection:cleared', handleSelectionCleard)
+    fabricCanvas.on('selection:cleared', handleSelectionCleared)
     fabricCanvas.on('object:modified', handleObjectModified)
     fabricCanvas.on('mouse:dblclick', handleGroupDoubleClick)
 
     fabricCanvasRef.current = fabricCanvas
+    // 重新绘制
     fabricCanvas.requestRenderAll()
+
     return () => {
       fabricCanvas.off('selection:created', handleSelectionChange)
       fabricCanvas.off('selection:updated', handleSelectionChange)
-      fabricCanvas.off('selection:cleared', handleSelectionCleard)
+      fabricCanvas.off('selection:cleared', handleSelectionCleared)
       fabricCanvas.off('object:modified', handleObjectModified)
       fabricCanvas.off('mouse:dblclick', handleGroupDoubleClick)
       fabricCanvasRef.current = null
       void fabricCanvas.dispose()
     }
-  }, [selectElement, updateElement, canvasHeightPx, canvasWidthPx])
+  }, [canvasHeightPx, canvasWidthPx, selectElement, updateElement])
 
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
@@ -564,103 +190,44 @@ export function FabricCanvas() {
       return
     }
 
-    isSyncintSelectionRef.current = true
+    isSyncingSelectionRef.current = true
+
     try {
-      const elementIds = new Set(elements.map((element) => element.id))
-      fabricCanvas.getObjects().forEach((object) => {
-        const elementId = getElementIdFromFabricObject(object)
-        const labelElementId = getLabelElementIdFromFabricObject(object)
-        const printOrderElementId =
-          getPrintOrderElementIdFromFabricObject(object)
-
-        if (elementId && !elementIds.has(elementId)) {
-          // 画布有、store 没有 -> 删除
-          fabricCanvas.remove(object)
-        }
-        if (labelElementId && !elementIds.has(labelElementId)) {
-          // 画布有、store 没有 -> 删除
-          fabricCanvas.remove(object)
-        }
-        if (printOrderElementId && !elementIds.has(printOrderElementId)) {
-          // 画布有、store 没有 -> 删除
-          fabricCanvas.remove(object)
-        }
-      })
-      elements.forEach((element) => {
-        const existingGroup = findGroupByElementId(fabricCanvas, element.id)
-        // store 有、画布也有 -> 更新
-        // 画布有、store 没有 -> 删除
-        if (existingGroup) {
-          updateElementGroup(existingGroup, element, canvasConfig)
-          // return
-        } else {
-          fabricCanvas.add(createElementGroup(element, canvasConfig))
-          // fabricCanvas.add(createElementLabel(element))
-        }
-        const existingLabel = findLabelByElementId(fabricCanvas, element.id)
-        if (existingLabel) {
-          updateElementLabel(existingLabel, element, canvasConfig)
-        } else {
-          fabricCanvas.add(createElementLabel(element, canvasConfig))
-        }
-        const existingPrintOrder = findPrintOrderByElementId(
-          fabricCanvas,
-          element.id,
-        )
-
-        if (existingPrintOrder) {
-          updateElementPrintOrder(existingPrintOrder, element, canvasConfig)
-        } else {
-          fabricCanvas.add(createElementPrintOrder(element, canvasConfig))
-        }
+      syncCanvasObjectsToElements({
+        fabricCanvas,
+        elements,
+        canvasConfig,
       })
     } finally {
-      isSyncintSelectionRef.current = false
+      isSyncingSelectionRef.current = false
     }
 
     fabricCanvas.requestRenderAll()
-  }, [elements, canvasConfig])
+  }, [canvasConfig, elements])
 
   useEffect(() => {
     const fabricCanvas = fabricCanvasRef.current
+
     if (!fabricCanvas) {
       return
     }
-    isSyncintSelectionRef.current = true
-    try {
-      fabricCanvas.getObjects().forEach((object) => {
-        const elementId = getElementIdFromFabricObject(object)
-        if (elementId) {
-          updateGroupSelectionStyle(
-            object as FabricGroupWithElementId,
-            elementId === selectedElementId,
-          )
-        }
-      })
-      if (!selectedElementId) {
-        fabricCanvas.discardActiveObject()
-        fabricCanvas.requestRenderAll()
-        return
-      }
-      const targetObject = findGroupByElementId(fabricCanvas, selectedElementId)
 
-      if (!targetObject) {
-        fabricCanvas.discardActiveObject()
-        fabricCanvas.requestRenderAll()
-        return
-      }
-      if (fabricCanvas.getActiveObject() !== targetObject) {
-        fabricCanvas.setActiveObject(targetObject)
-      }
-      fabricCanvas.requestRenderAll()
+    isSyncingSelectionRef.current = true
+
+    try {
+      syncCanvasSelectionToElement({
+        fabricCanvas,
+        selectedElementId,
+      })
     } finally {
-      isSyncintSelectionRef.current = false
+      isSyncingSelectionRef.current = false
     }
+
+    fabricCanvas.requestRenderAll()
   }, [selectedElementId, elements])
 
   return (
     <div
-      // className="border border-slate-300 bg-white shadow-sm"
       className="relative border border-slate-300 bg-white shadow-sm"
       style={{
         width: canvasWidthPx,
