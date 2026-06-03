@@ -26,9 +26,6 @@ const isCanvasConfig = (value: unknown): value is LabelCanvasConfig =>
 // const printItems = ['商品名', '価格', 'バーコード']
 
 export default function Home() {
-  // const handleAddField = (field: FieldDefinition) => {}
-  // const elements = useEditorStore((state) => state.elements)
-  // const selectedElementId = useEditorStore((state) => state.selectedElementId)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const addElementFromField = useEditorStore(
     (state) => state.addElementFromField,
@@ -38,6 +35,7 @@ export default function Home() {
   const selectedElementId = useEditorStore((state) => state.selectedElementId)
   const updateElement = useEditorStore((state) => state.updateElement)
   const loadEditorState = useEditorStore((state) => state.loadEditorState)
+  const removeElement = useEditorStore((state) => state.removeElement)
 
   const selectedElement =
     elements.find((element) => element.id === selectedElementId) ?? null
@@ -123,6 +121,17 @@ export default function Home() {
     }
   }
 
+  const handleDeleteElement = () => {
+    if (!selectedElementId) {
+      return
+    }
+    const confirmed = window.confirm('選択中の要素を削除してもよろしいですか？')
+    if (!confirmed) {
+      return
+    }
+    removeElement(selectedElementId)
+  }
+
   return (
     <main className="min-h-screen bg-slate-100 text-slate-950">
       <div className="grid min-h-screen grid-cols-[260px_1fr_280px]">
@@ -137,6 +146,14 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDeleteElement}
+                disabled={!selectedElementId}
+                className="mr-3 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-red-500 hover:text-red-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:hover:border-slate-200 disabled:hover:text-slate-400"
+              >
+                削除
+              </button>
               <input
                 ref={fileInputRef}
                 type="file"

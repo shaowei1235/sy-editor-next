@@ -86,11 +86,18 @@ export const useEditorStore = create<EditorStore>((set) => ({
     }))
   },
   removeElement: (id) => {
-    set((state) => ({
-      elements: state.elements.filter((e) => e.id !== id),
-      selectedElementId:
-        state.selectedElementId === id ? null : state.selectedElementId,
-    }))
+    set((state) => {
+      const remainingElements = state.elements
+        .filter((e) => e.id !== id)
+        .map((e, index) => ({
+          ...e,
+          printOrder: index + 1,
+        }))
+      return {
+        elements: remainingElements,
+        selectedElementId: null,
+      }
+    })
   },
   reorderElementsByIds: (orderedIds) =>
     set((state) => {
