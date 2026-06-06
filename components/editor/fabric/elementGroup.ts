@@ -17,7 +17,7 @@ const DEFAULT_RECT_STROKE = '#cbd5e1'
 const SELECTED_RECT_STROKE = '#06b6d4'
 const TEXT_FILL = '#111827'
 const LABEL_FILL = '#64748b'
-const LABEL_FONT_SIZE = 10
+const LABEL_FONT_SIZE = 12
 const BADGE_FILL = '#ffffff'
 const BADGE_BACKGROUND = '#ef4444'
 const BADGE_FONT_SIZE = 12
@@ -92,7 +92,7 @@ export const syncGroupToElementSize = (
   }
   label?.set({
     left: left + ELEMENT_PADDING_PX,
-    top: top + 2,
+    top: top - 15,
     scaleX: 1,
     scaleY: 1,
   })
